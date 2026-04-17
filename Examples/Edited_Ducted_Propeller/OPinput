@@ -1,0 +1,473 @@
+# Created by Octave 11.1.0, Thu Apr 16 20:58:47 2026 UTC
+# name: pt
+# type: scalar struct
+# ndims: 2
+ 1 1
+# length: 7
+# name: filename
+# type: sq_string
+# elements: 1
+# length: 8
+OpenProp
+
+
+# name: date
+# type: sq_string
+# elements: 1
+# length: 11
+16-Apr-2026
+
+
+# name: notes
+# type: sq_string
+# elements: 1
+# length: 53
+Ducted propeller from Sutbblefield (2008) M.S. thesis
+
+
+# name: input
+# type: scalar struct
+# ndims: 2
+ 1 1
+# length: 36
+# name: part1
+# type: sq_string
+# elements: 1
+# length: 32
+------ Performance inputs ------
+
+
+# name: Z
+# type: scalar
+4
+
+
+# name: N
+# type: scalar
+9000
+
+
+# name: D
+# type: scalar
+0.10000000000000001
+
+
+# name: Vs
+# type: scalar
+4.5
+
+
+# name: Js
+# type: scalar
+0.29999999999999999
+
+
+# name: L
+# type: scalar
+10.471975511965978
+
+
+# name: CTDES
+# type: scalar
+11.041643748380812
+
+
+# name: part2
+# type: sq_string
+# elements: 1
+# length: 29
+------ Geometry inputs ------
+
+
+# name: Mp
+# type: scalar
+20
+
+
+# name: Np
+# type: scalar
+20
+
+
+# name: R
+# type: scalar
+0.050000000000000003
+
+
+# name: Rhub
+# type: scalar
+0.0074999999999999997
+
+
+# name: XR
+# type: matrix
+# rows: 1
+# columns: 10
+ 0.20000000000000001 0.29999999999999999 0.40000000000000002 0.5 0.59999999999999998 0.69999999999999996 0.80000000000000004 0.90000000000000002 0.94999999999999996 1
+
+
+# name: XVA
+# type: matrix
+# rows: 1
+# columns: 10
+ 1 1 1 1 1 1 1 1 1 1
+
+
+# name: XVT
+# type: matrix
+# rows: 1
+# columns: 10
+ 0 0 0 0 0 0 0 0 0 0
+
+
+# name: XCD
+# type: matrix
+# rows: 1
+# columns: 10
+ 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002
+
+
+# name: XCoD
+# type: matrix
+# rows: 1
+# columns: 10
+ 0.16 0.18179999999999999 0.2024 0.21959999999999999 0.23050000000000001 0.2311 0.21729999999999999 0.18060000000000001 0.13869999999999999 0.001
+
+
+# name: t0oc0
+# type: matrix
+# rows: 1
+# columns: 10
+ 0.2056 0.15509999999999999 0.1181 0.090200000000000002 0.069400000000000003 0.054100000000000002 0.0419 0.0332 0.032399999999999998 0
+
+
+# name: skew0
+# type: matrix
+# rows: 1
+# columns: 10
+ 0 0 0 0 0 0 0 0 0 0
+
+
+# name: rake0
+# type: matrix
+# rows: 1
+# columns: 10
+ 0 0 0 0 0 0 0 0 0 0
+
+
+# name: Meanline
+# type: sq_string
+# elements: 1
+# length: 10
+NACA a=0.8
+
+
+# name: Thickness
+# type: scalar
+2
+
+
+# name: dCLdALPHA
+# type: scalar
+6.2831853071795862
+
+
+# name: part3
+# type: sq_string
+# elements: 1
+# length: 34
+------ Computational inputs ------
+
+
+# name: Propeller_flag
+# type: scalar
+1
+
+
+# name: Viscous_flag
+# type: scalar
+1
+
+
+# name: Hub_flag
+# type: scalar
+1
+
+
+# name: Duct_flag
+# type: scalar
+1
+
+
+# name: Plot_flag
+# type: scalar
+1
+
+
+# name: Chord_flag
+# type: scalar
+1
+
+
+# name: part4
+# type: sq_string
+# elements: 1
+# length: 25
+------ Duct inputs ------
+
+
+# name: TAU
+# type: scalar
+0.90000000000000002
+
+
+# name: Rduct
+# type: scalar
+0.052000000000000005
+
+
+# name: Cduct
+# type: scalar
+0.075000000000000011
+
+
+# name: CDd
+# type: scalar
+0.0080000000000000002
+
+
+
+
+# name: design
+# type: matrix
+# rows: 0
+# columns: 0
+
+
+# name: geometry
+# type: matrix
+# rows: 0
+# columns: 0
+
+
+# name: states
+# type: matrix
+# rows: 0
+# columns: 0
+
+
+
+
+# name: input
+# type: scalar struct
+# ndims: 2
+ 1 1
+# length: 36
+# name: part1
+# type: sq_string
+# elements: 1
+# length: 32
+------ Performance inputs ------
+
+
+# name: Z
+# type: scalar
+4
+
+
+# name: N
+# type: scalar
+9000
+
+
+# name: D
+# type: scalar
+0.10000000000000001
+
+
+# name: Vs
+# type: scalar
+4.5
+
+
+# name: Js
+# type: scalar
+0.29999999999999999
+
+
+# name: L
+# type: scalar
+10.471975511965978
+
+
+# name: CTDES
+# type: scalar
+11.041643748380812
+
+
+# name: part2
+# type: sq_string
+# elements: 1
+# length: 29
+------ Geometry inputs ------
+
+
+# name: Mp
+# type: scalar
+20
+
+
+# name: Np
+# type: scalar
+20
+
+
+# name: R
+# type: scalar
+0.050000000000000003
+
+
+# name: Rhub
+# type: scalar
+0.0074999999999999997
+
+
+# name: XR
+# type: matrix
+# rows: 1
+# columns: 10
+ 0.20000000000000001 0.29999999999999999 0.40000000000000002 0.5 0.59999999999999998 0.69999999999999996 0.80000000000000004 0.90000000000000002 0.94999999999999996 1
+
+
+# name: XVA
+# type: matrix
+# rows: 1
+# columns: 10
+ 1 1 1 1 1 1 1 1 1 1
+
+
+# name: XVT
+# type: matrix
+# rows: 1
+# columns: 10
+ 0 0 0 0 0 0 0 0 0 0
+
+
+# name: XCD
+# type: matrix
+# rows: 1
+# columns: 10
+ 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002
+
+
+# name: XCoD
+# type: matrix
+# rows: 1
+# columns: 10
+ 0.16 0.18179999999999999 0.2024 0.21959999999999999 0.23050000000000001 0.2311 0.21729999999999999 0.18060000000000001 0.13869999999999999 0.001
+
+
+# name: t0oc0
+# type: matrix
+# rows: 1
+# columns: 10
+ 0.2056 0.15509999999999999 0.1181 0.090200000000000002 0.069400000000000003 0.054100000000000002 0.0419 0.0332 0.032399999999999998 0
+
+
+# name: skew0
+# type: matrix
+# rows: 1
+# columns: 10
+ 0 0 0 0 0 0 0 0 0 0
+
+
+# name: rake0
+# type: matrix
+# rows: 1
+# columns: 10
+ 0 0 0 0 0 0 0 0 0 0
+
+
+# name: Meanline
+# type: sq_string
+# elements: 1
+# length: 10
+NACA a=0.8
+
+
+# name: Thickness
+# type: scalar
+2
+
+
+# name: dCLdALPHA
+# type: scalar
+6.2831853071795862
+
+
+# name: part3
+# type: sq_string
+# elements: 1
+# length: 34
+------ Computational inputs ------
+
+
+# name: Propeller_flag
+# type: scalar
+1
+
+
+# name: Viscous_flag
+# type: scalar
+1
+
+
+# name: Hub_flag
+# type: scalar
+1
+
+
+# name: Duct_flag
+# type: scalar
+1
+
+
+# name: Plot_flag
+# type: scalar
+1
+
+
+# name: Chord_flag
+# type: scalar
+1
+
+
+# name: part4
+# type: sq_string
+# elements: 1
+# length: 25
+------ Duct inputs ------
+
+
+# name: TAU
+# type: scalar
+0.90000000000000002
+
+
+# name: Rduct
+# type: scalar
+0.052000000000000005
+
+
+# name: Cduct
+# type: scalar
+0.075000000000000011
+
+
+# name: CDd
+# type: scalar
+0.0080000000000000002
+
+
+
+

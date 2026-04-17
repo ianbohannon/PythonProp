@@ -1,0 +1,499 @@
+# Created by Octave 11.1.0, Tue Apr 14 21:36:44 2026 UTC
+# name: pt
+# type: scalar struct
+# ndims: 2
+ 1 1
+# length: 7
+# name: filename
+# type: sq_string
+# elements: 1
+# length: 7
+DDGprop
+
+
+# name: date
+# type: sq_string
+# elements: 1
+# length: 11
+14-Apr-2026
+
+
+# name: notes
+# type: sq_string
+# elements: 0
+
+
+# name: input
+# type: scalar struct
+# ndims: 2
+ 1 1
+# length: 38
+# name: part1
+# type: sq_string
+# elements: 1
+# length: 32
+------ Performance inputs ------
+
+
+# name: Z
+# type: scalar
+5
+
+
+# name: N
+# type: scalar
+93.799999999999997
+
+
+# name: D
+# type: scalar
+5.1816000000000004
+
+
+# name: Vs
+# type: scalar
+10.2888
+
+
+# name: Js
+# type: scalar
+1.2701331560947331
+
+
+# name: L
+# type: scalar
+2.4734356697286919
+
+
+# name: THRUST
+# type: scalar
+415866.61000000004
+
+
+# name: Vh
+# type: scalar
+15.433199999999999
+
+
+# name: THRUSTh
+# type: scalar
+1379947.6300000001
+
+
+# name: part2
+# type: sq_string
+# elements: 1
+# length: 29
+------ Geometry inputs ------
+
+
+# name: Mp
+# type: scalar
+20
+
+
+# name: Np
+# type: scalar
+20
+
+
+# name: R
+# type: scalar
+2.5908000000000002
+
+
+# name: Rhub
+# type: scalar
+0.73034652
+
+
+# name: XR
+# type: matrix
+# rows: 1
+# columns: 13
+ 0.28189999999999998 0.29999999999999999 0.34999999999999998 0.40000000000000002 0.45000000000000001 0.5 0.59999999999999998 0.69999999999999996 0.80000000000000004 0.90000000000000002 0.94999999999999996 0.97999999999999998 1
+
+
+# name: XVA
+# type: matrix
+# rows: 1
+# columns: 13
+ 1 1 1 1 1 1 1 1 1 1 1 1 1
+
+
+# name: XVT
+# type: matrix
+# rows: 1
+# columns: 13
+ 0 0 0 0 0 0 0 0 0 0 0 0 0
+
+
+# name: XCD
+# type: matrix
+# rows: 1
+# columns: 13
+ 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002
+
+
+# name: XCoD
+# type: matrix
+# rows: 1
+# columns: 13
+ 0.18909999999999999 0.20000000000000001 0.23699999999999999 0.27600000000000002 0.308 0.33410000000000001 0.38540000000000002 0.435 0.47449999999999998 0.46500000000000002 0.39000000000000001 0.27695999999999998 0
+
+
+# name: Xt0oD
+# type: matrix
+# rows: 1
+# columns: 13
+ 0.058590744 0.053872000000000003 0.04219548 0.031527480000000004 0.027402759999999998 0.025211186 0.022576732000000002 0.021201899999999999 0.01949246 0.020348400000000003 0.022943700000000001 0.017730979199999997 0
+
+
+# name: skew0
+# type: matrix
+# rows: 1
+# columns: 13
+ 9.8699999999999992 6.2800000000000002 -0.754 -4.8239999999999998 -7.3360000000000003 -8.8650000000000002 -9.8379999999999992 -8.1080000000000005 -3.7839999999999998 3.7839999999999998 9.2970000000000006 13.343999999999999 16.399999999999999
+
+
+# name: rake0
+# type: matrix
+# rows: 1
+# columns: 13
+ 0.017090000000000001 0.0111 -0.00694 -0.023699999999999999 -0.035790000000000002 -0.04367 -0.048250000000000001 -0.041950000000000001 -0.030249999999999999 -0.016449999999999999 -0.0095999999999999992 -0.0053800000000000002 -0.0024499999999999999
+
+
+# name: Meanline
+# type: sq_string
+# elements: 1
+# length: 10
+NACA a=0.8
+
+
+# name: Thickness
+# type: sq_string
+# elements: 1
+# length: 11
+NACA 65A010
+
+
+# name: dCLdALPHA
+# type: scalar
+6.2831853071795862
+
+
+# name: part3
+# type: sq_string
+# elements: 1
+# length: 34
+------ Computational inputs ------
+
+
+# name: Propeller_flag
+# type: scalar
+1
+
+
+# name: Viscous_flag
+# type: scalar
+1
+
+
+# name: Hub_flag
+# type: scalar
+1
+
+
+# name: Duct_flag
+# type: scalar
+0
+
+
+# name: Plot_flag
+# type: scalar
+1
+
+
+# name: Chord_flag
+# type: scalar
+1
+
+
+# name: ChordMethod
+# type: sq_string
+# elements: 1
+# length: 12
+FAST2011dCTP
+
+
+# name: ITER
+# type: scalar
+40
+
+
+# name: part4
+# type: sq_string
+# elements: 1
+# length: 31
+------ Cavitation inputs ------
+
+
+# name: rho
+# type: scalar
+1025
+
+
+# name: H
+# type: scalar
+6.3093599999999999
+
+
+
+
+# name: design
+# type: matrix
+# rows: 0
+# columns: 0
+
+
+# name: geometry
+# type: matrix
+# rows: 0
+# columns: 0
+
+
+# name: states
+# type: matrix
+# rows: 0
+# columns: 0
+
+
+
+
+# name: input
+# type: scalar struct
+# ndims: 2
+ 1 1
+# length: 38
+# name: part1
+# type: sq_string
+# elements: 1
+# length: 32
+------ Performance inputs ------
+
+
+# name: Z
+# type: scalar
+5
+
+
+# name: N
+# type: scalar
+93.799999999999997
+
+
+# name: D
+# type: scalar
+5.1816000000000004
+
+
+# name: Vs
+# type: scalar
+10.2888
+
+
+# name: Js
+# type: scalar
+1.2701331560947331
+
+
+# name: L
+# type: scalar
+2.4734356697286919
+
+
+# name: THRUST
+# type: scalar
+415866.61000000004
+
+
+# name: Vh
+# type: scalar
+15.433199999999999
+
+
+# name: THRUSTh
+# type: scalar
+1379947.6300000001
+
+
+# name: part2
+# type: sq_string
+# elements: 1
+# length: 29
+------ Geometry inputs ------
+
+
+# name: Mp
+# type: scalar
+20
+
+
+# name: Np
+# type: scalar
+20
+
+
+# name: R
+# type: scalar
+2.5908000000000002
+
+
+# name: Rhub
+# type: scalar
+0.73034652
+
+
+# name: XR
+# type: matrix
+# rows: 1
+# columns: 13
+ 0.28189999999999998 0.29999999999999999 0.34999999999999998 0.40000000000000002 0.45000000000000001 0.5 0.59999999999999998 0.69999999999999996 0.80000000000000004 0.90000000000000002 0.94999999999999996 0.97999999999999998 1
+
+
+# name: XVA
+# type: matrix
+# rows: 1
+# columns: 13
+ 1 1 1 1 1 1 1 1 1 1 1 1 1
+
+
+# name: XVT
+# type: matrix
+# rows: 1
+# columns: 13
+ 0 0 0 0 0 0 0 0 0 0 0 0 0
+
+
+# name: XCD
+# type: matrix
+# rows: 1
+# columns: 13
+ 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002 0.0080000000000000002
+
+
+# name: XCoD
+# type: matrix
+# rows: 1
+# columns: 13
+ 0.18909999999999999 0.20000000000000001 0.23699999999999999 0.27600000000000002 0.308 0.33410000000000001 0.38540000000000002 0.435 0.47449999999999998 0.46500000000000002 0.39000000000000001 0.27695999999999998 0
+
+
+# name: Xt0oD
+# type: matrix
+# rows: 1
+# columns: 13
+ 0.058590744 0.053872000000000003 0.04219548 0.031527480000000004 0.027402759999999998 0.025211186 0.022576732000000002 0.021201899999999999 0.01949246 0.020348400000000003 0.022943700000000001 0.017730979199999997 0
+
+
+# name: skew0
+# type: matrix
+# rows: 1
+# columns: 13
+ 9.8699999999999992 6.2800000000000002 -0.754 -4.8239999999999998 -7.3360000000000003 -8.8650000000000002 -9.8379999999999992 -8.1080000000000005 -3.7839999999999998 3.7839999999999998 9.2970000000000006 13.343999999999999 16.399999999999999
+
+
+# name: rake0
+# type: matrix
+# rows: 1
+# columns: 13
+ 0.017090000000000001 0.0111 -0.00694 -0.023699999999999999 -0.035790000000000002 -0.04367 -0.048250000000000001 -0.041950000000000001 -0.030249999999999999 -0.016449999999999999 -0.0095999999999999992 -0.0053800000000000002 -0.0024499999999999999
+
+
+# name: Meanline
+# type: sq_string
+# elements: 1
+# length: 10
+NACA a=0.8
+
+
+# name: Thickness
+# type: sq_string
+# elements: 1
+# length: 11
+NACA 65A010
+
+
+# name: dCLdALPHA
+# type: scalar
+6.2831853071795862
+
+
+# name: part3
+# type: sq_string
+# elements: 1
+# length: 34
+------ Computational inputs ------
+
+
+# name: Propeller_flag
+# type: scalar
+1
+
+
+# name: Viscous_flag
+# type: scalar
+1
+
+
+# name: Hub_flag
+# type: scalar
+1
+
+
+# name: Duct_flag
+# type: scalar
+0
+
+
+# name: Plot_flag
+# type: scalar
+1
+
+
+# name: Chord_flag
+# type: scalar
+1
+
+
+# name: ChordMethod
+# type: sq_string
+# elements: 1
+# length: 12
+FAST2011dCTP
+
+
+# name: ITER
+# type: scalar
+40
+
+
+# name: part4
+# type: sq_string
+# elements: 1
+# length: 31
+------ Cavitation inputs ------
+
+
+# name: rho
+# type: scalar
+1025
+
+
+# name: H
+# type: scalar
+6.3093599999999999
+
+
+
+
