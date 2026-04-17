@@ -1,0 +1,84 @@
+# Port target: Examples/Edited_Ducted_Propeller/Ducted_Prop_usage_script.m
+"""Ducted propeller design example — Python port.
+
+Ported from: Edited_Ducted_Propeller/Ducted_Prop_usage_script.m
+
+Usage
+-----
+Run this script directly::
+
+    python Ducted_Prop_usage_script.py
+
+or import and call :func:`run` programmatically.
+"""
+
+import sys
+import os
+import numpy as np
+
+# Allow imports from Python/SourceCode when running the script directly
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_SRC  = os.path.join(_HERE, "..", "..", "SourceCode")
+if _SRC not in sys.path:
+    sys.path.insert(0, _SRC)
+
+from Ducted_Prop_input import build_input
+from EppsOptimizer import EppsOptimizer
+from Make_Reports import Make_Reports
+from Geometry import Geometry
+from Analyze import Analyze
+
+
+def run(plot=False):
+    """Execute the ducted-propeller design workflow.
+
+    Parameters
+    ----------
+    plot : bool, optional
+        Set to ``True`` to display matplotlib figures (requires a display).
+        Default ``False`` (matches ``Plot_flag = 0`` in the MATLAB script).
+
+    Returns
+    -------
+    pt : dict
+        Fully populated propeller/turbine data structure after design,
+        geometry, and off-design analysis.
+    """
+    # ----------------------------------------------------------------- Inputs
+    inp, pt = build_input()
+    pt["input"]["Plot_flag"] = 0  # suppress plots by default (matches MATLAB script)
+
+    # ------------------------------------------------- Design optimisation
+    pt["design"] = EppsOptimizer(pt["input"])
+    print("Design RC:", pt["design"]["RC"])
+    print("Design G :", pt["design"]["G"])
+
+    # ------------------------------------------- Graphical and text reports
+    Make_Reports(pt)
+
+    # ----------------------------------------------- Propeller blade geometry
+    pt["geometry"] = Geometry(pt)
+
+    # -------------------------------------------------- Off-design analysis
+    Js_all     = np.arange(0.40, 0.76, 0.05)   # advance coefficients
+    LAMBDAall  = np.pi / Js_all                  # tip-speed ratios
+    pt["states"] = Analyze(pt, LAMBDAall)
+
+    if plot:
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.plot(pt["states"]["Js"], pt["states"]["KT"],   ".-b", label="KT")
+        ax.plot(pt["states"]["Js"], pt["states"]["KQ"],   ".-r", label="10KQ")
+        ax.plot(pt["states"]["Js"], pt["states"]["EFFY"], ".-g", label="EFFY")
+        ax.set_xlabel("Js")
+        ax.set_ylabel("KT, 10*KQ, EFFY")
+        ax.legend()
+        plt.tight_layout()
+        plt.show()
+
+    return pt
+
+
+if __name__ == "__main__":
+    pt = run(plot=False)
+    print("Done.")
