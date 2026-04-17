@@ -1,0 +1,29 @@
+# Port target: SourceCode/InterpolateChord.m
+"""Interpolate chord-length distribution onto optimizer control-point radii."""
+
+import numpy as np
+from scipy.interpolate import pchip_interpolate
+
+
+def InterpolateChord(XR, XCoD, RC):
+    """Interpolate chord / diameter values from input radii to control-point radii.
+
+    Parameters
+    ----------
+    XR : array_like
+        Input radii (r/R) where chord is defined.
+    XCoD : array_like
+        Chord / diameter at *XR*.
+    RC : array_like
+        Control-point radii (r/R) at which interpolation is required.
+
+    Returns
+    -------
+    CoD : ndarray, shape like *RC*
+        Interpolated chord / diameter at *RC*.
+    """
+    XR = np.asarray(XR, dtype=float)
+    XCoD = np.asarray(XCoD, dtype=float)
+    RC = np.asarray(RC, dtype=float)
+    CoD = pchip_interpolate(XR, XCoD, RC)
+    return CoD
