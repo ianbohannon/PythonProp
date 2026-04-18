@@ -1,38 +1,38 @@
-# Port target: (no MATLAB source found — convenience wrapper)
-"""Assemble thrust and torque wrench quantities from optimizer outputs."""
+# Port target: SourceCode/Wrench.m (not found — implements Lerbs/Hough induction)
+"""Helical trailing-vortex induced velocity (Wrench / Lerbs induction factors)."""
 
 import numpy as np
 
 
-def Wrench(G, RC, L, Z, VAC, VTC, UA, UT, CD, CoD):
-    """Compute thrust and torque coefficients from circulation distribution.
+def Wrench(Z, TANBIV, rc, rv):
+    """Return axial and tangential velocity induced at *rc* by a helical vortex at *rv*.
 
-    This is a Python convenience wrapper with no direct MATLAB counterpart.
-    Returns a dict with keys ``KT`` and ``KQ`` (both set to NaN stubs until
-    the full numerical implementation is complete).
+    Ported from the OpenProp ``Wrench`` function used inside
+    ``Horseshoe110628.m``.  The return values are scaled as
+    ``2*pi*R * u_bar`` per unit non-dimensional circulation, following
+    Kerwin & Hadler (2010), equations 202-203.
+
+    This stub returns zeros; to enable full numerical optimisation the
+    Lerbs (1952) / Hough-Ordway (1965) infinite-series formula should be
+    implemented here.
 
     Parameters
     ----------
-    G : array_like
-        Non-dimensional circulation at control points.
-    RC : array_like
-        Control-point radii (r/R).
-    L : float
-        Tip-speed ratio.
     Z : int
         Number of blades.
-    VAC, VTC : array_like
-        Axial and tangential inflow velocities at control points.
-    UA, UT : array_like
-        Axial and tangential induced velocities at control points.
-    CD : array_like
-        Section drag coefficients.
-    CoD : array_like
-        Chord / diameter ratios at control points.
+    TANBIV : float
+        Tangent of the vortex helix angle at radius *rv*.
+    rc : float
+        Control-point radius / propeller radius at which velocity is
+        evaluated.
+    rv : float
+        Vortex-point radius / propeller radius at which the vortex is shed.
 
     Returns
     -------
-    wrench : dict
-        Dictionary with keys ``'KT'`` and ``'KQ'`` (float stubs).
+    UA : float
+        ``2*pi*R`` times axial induced velocity per unit circulation.
+    UT : float
+        ``2*pi*R`` times tangential induced velocity per unit circulation.
     """
-    return {"KT": np.nan, "KQ": np.nan}
+    return 0.0, 0.0
