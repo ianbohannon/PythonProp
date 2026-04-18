@@ -1,15 +1,15 @@
-# Port target: (no MATLAB source found — passthrough/identity stub)
-"""Passthrough stub: return the input spline data unchanged."""
+# Port target: SourceCode/RepairSpline.m  / RepairSplineMatrix
+"""Passthrough stub: return the input spline data unchanged; smoothing matrix."""
 
 import numpy as np
 
 
 def RepairSpline(x, y):
-    """Return *x* and *y* unchanged (no-op passthrough).
+    """Return *y* smoothed (passthrough identity in this stub).
 
-    In the full implementation this function would detect and repair
-    non-monotone or ill-conditioned spline knot sequences.  For this
-    iteration it acts as an identity operation.
+    In the MATLAB source, ``RepairSpline(x, y)`` returns a single array —
+    the (possibly repaired) version of *y*.  This Python stub is an
+    identity passthrough.
 
     Parameters
     ----------
@@ -20,9 +20,29 @@ def RepairSpline(x, y):
 
     Returns
     -------
-    x_out : ndarray
-        Same as input *x*.
     y_out : ndarray
-        Same as input *y*.
+        Same as input *y* (identity passthrough).
     """
-    return np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+    return np.asarray(y, dtype=float)
+
+
+def RepairSplineMatrix(RC):
+    """Return an identity smoothing matrix for radius array *RC*.
+
+    In the MATLAB source, ``RepairSplineMatrix(RC)`` returns a matrix
+    ``Bsmooth`` such that ``X_smooth = X * Bsmooth`` smooths data ``X``
+    defined at control points ``RC``.  This stub returns the identity
+    matrix (no smoothing).
+
+    Parameters
+    ----------
+    RC : array_like, shape (Mp,)
+        Control-point radii.
+
+    Returns
+    -------
+    Bsmooth : ndarray, shape (Mp, Mp)
+        Identity smoothing matrix.
+    """
+    Mp = len(RC)
+    return np.eye(Mp)

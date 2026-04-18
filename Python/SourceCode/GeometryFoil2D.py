@@ -1,35 +1,90 @@
 # Port target: SourceCode/GeometryFoil2D.m
-"""Generate 2-D foil section geometry (camber line and thickness distribution)."""
+"""Return foil section geometry parameters for chord optimisation."""
 
 import numpy as np
 
 
-def GeometryFoil2D(Np, Meanline, Thickness, t0oc, f0oc=0.0):
-    """Return x/c, camber-line y/c, and half-thickness y/c arrays for a 2-D section.
+# Default values for common profiles (from OpenProp source code)
+_DEFAULTS = {
+    # (Meanline, Thickness): (f0octilde, CLItilde, alphaItilde)
+    ("NACA a=0.8 (modified)", "NACA 65A010"):     (0.0611, 0.7, 1.540),
+    ("NACA a=0.8",            "NACA 65A010"):     (0.0679, 0.7, 1.540),
+    ("parabolic",             "NACA 65A010"):     (0.0500, 0.7, 1.540),
+}
+_DEFAULT_F0OCTILDE  = 0.0611
+_DEFAULT_CLITILDE   = 0.7
+_DEFAULT_ALPHAITILDE = 1.540
+
+
+def GeometryFoil2D(Meanline="NACA a=0.8 (modified)",
+                   Thickness="NACA 65A010",
+                   x0=None):
+    """Return foil section geometry parameters.
+
+    Ported from ``SourceCode/GeometryFoil2D.m``.
+
+    In EppsOptimizer the function is called as::
+
+        [f0octilde, CLItilde, ...] = GeometryFoil2D(Meanline, Thickness)
+
+    returning at least seven outputs.
 
     Parameters
     ----------
-    Np : int
-        Number of points along the chord.
     Meanline : str or int
-        Meanline type (e.g. ``'NACA a=0.8'`` or ``1``).
-    Thickness : int
-        Thickness form (1 = NACA 65A010, 2 = elliptical, 3 = parabolic).
-    t0oc : float
-        Maximum thickness / chord.
-    f0oc : float, optional
-        Maximum camber / chord. Default 0.
+        Meanline type (e.g. ``'NACA a=0.8 (modified)'`` or ``0``).
+    Thickness : str or int
+        Thickness form (e.g. ``'NACA 65A010'`` or ``1``).
+    x0 : array_like, optional
+        Chord-wise positions x/c (ignored in this stub).
 
     Returns
     -------
-    xoc : ndarray, shape (Np,)
-        Chord-wise positions x/c in [0, 1].
-    yc : ndarray, shape (Np,)
-        Camber-line y/c (stub — returns zeros).
-    yt : ndarray, shape (Np,)
-        Half-thickness y/c (stub — returns zeros).
+    f0octilde : float
+        Non-dimensional camber parameter used in chord optimisation.
+    CLItilde : float
+        Ideal lift coefficient.
+    alphaItilde : float
+        Ideal angle of attack [deg].
+    fof0 : ndarray
+        Camber-line ordinate / f0 (stub — returns zeros).
+    dfof0dxoc : ndarray
+        Camber-line slope / f0 (stub — returns zeros).
+    tot0 : ndarray
+        Thickness / t0 (stub — returns zeros).
+    As0 : float
+        Leading-edge sharpness parameter (stub — 0).
     """
-    xoc = np.linspace(0.0, 1.0, Np)
-    yc = np.zeros(Np)
-    yt = np.zeros(Np)
-    return xoc, yc, yt
+    # Normalise integer codes used in MATLAB
+    _meanline_map = {
+        0: "NACA a=0.8 (modified)",
+        1: "NACA a=0.8",
+        2: "parabolic",
+    }
+    _thickness_map = {
+        1: "NACA 65A010",
+        2: "elliptic",
+        3: "parabolic",
+        4: "NACA 65A010 (Epps modified)",
+        5: "NACA 66 (DTRC modified)",
+        6: "NACA 00xx",
+    }
+    if isinstance(Meanline,  int): Meanline  = _meanline_map.get(Meanline,  "NACA a=0.8 (modified)")
+    if isinstance(Thickness, int): Thickness = _thickness_map.get(Thickness, "NACA 65A010")
+
+    key = (Meanline, Thickness)
+    f0octilde, CLItilde, alphaItilde = _DEFAULTS.get(
+        key, (_DEFAULT_F0OCTILDE, _DEFAULT_CLITILDE, _DEFAULT_ALPHAITILDE)
+    )
+
+    if x0 is None:
+        x0 = np.arange(0, 1.1, 0.1)
+    x0 = np.asarray(x0, dtype=float)
+    n  = len(x0)
+
+    fof0      = np.zeros(n)
+    dfof0dxoc = np.zeros(n)
+    tot0      = np.zeros(n)
+    As0       = 0.0
+
+    return f0octilde, CLItilde, alphaItilde, fof0, dfof0dxoc, tot0, As0
