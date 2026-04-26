@@ -1,0 +1,370 @@
+﻿# ----------------------------------------------------------------------- #
+#                                                                         #
+#                              0111000                                    #
+#                           100 1 100 001                                 #
+#                         10    1  1  1 00                                #
+#                        01  1  1  1      0                               #
+#                       0 1  1  1   1  1 1 0                              #
+#                       0   1   1   1  1  1 0                             #
+#                       0 1     1   1  1  1 0                             #
+#                       0 1  1  1   1  0  1 0                             #
+#                       0 1  1  1   0  1    0                             #
+#                       01 1        1  1 1 0                              #
+#                        0    0  1  0 1   0                               #
+#                         0         1    0                                #
+#                    10010 0 1101111110111                                #
+#                  10 1 1  1111111111 11 11                               #
+#                 0 1 1 1 11111111101011010111                            #
+#                01 11    11111111 1  1    1 110                          #
+#               011    1 1 111111110011  1 1 1 110                        #
+#               0   11 1 1 1 111      0  1 1 1   10                       #
+#               0 1   11  1  0         1 1 1 1 1 1 0                      #
+#               1  11 1 1   11          0  1 1 1 1 11                     #
+#                0     1 1  0           011  1 1 1 10                     #
+#                10 1   1  0             0  1 1 1  11                     #
+#                 10     01               01      10                      #
+#                   10001                   001 100                       #
+#                                             111                         #
+#                                                                         #
+#             ____                   _____                                #
+#            / __ \                 |  __ \                               #
+#           | |  | |_ __   ___ _ __ | |__) | __ ___  _ __                 #
+#           | |  | | '_ \ / _ \ '_ \|  ___/ '__/ _ \| '_ \                #
+#           | |__| | |_) |  __/ | | | |   | | | (_) | |_) |               #
+#            \____/| .__/ \___|_| |_|_|   |_|  \___/| .__/                #
+#                  | |                              | |                   #
+#                  |_|                              |_|                   #
+#                                                                         #
+#             An integrated rotor design and analysis tool.               #
+#                                                                         #
+#                                                                         #
+# Copyright (C) 2011, Brenden Epps.                                       #
+#                                                                         #
+# This program is free software; you can redistribute it and/or modify it #
+# under the terms of the GNU General Public License as published by the   #
+# Free Software Foundation.                                               #
+#                                                                         #
+# This program is distributed in the hope that it will be useful, but     #
+# WITHOUT ANY WARRANTY; without even the implied warranty of              #
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                    #
+# See the GNU General Public License for more details.                    #
+#                                                                         #
+# ----------------------------------------------------------------------- #
+
+"""
+GeometryFoil2D - Find meanline and thickness profiles at given x/c positions
+
+Created: Brenden Epps, 8/15/2010
+Ported to Python: 2024
+
+Inputs:
+  Meanline              meanline  type (string)
+  Thickness             thickness type (string)
+  x0                    x/c distance along chord line to interpolate 
+                            NACA foil table data.
+
+Variables: 
+        f(xoc)              camber    at x/c
+        f0              max camber
+        t(xoc)              thickness at x/c
+        t0              max thickness
+        c               chord
+      xoc               x/c coordinate in 2D NACA foil tables
+                              At the Leading  Edge: xoc = x0 = 0
+                              At the Trailing Edge: xoc = x0 = 1
+
+      foc               camber / chord ratio (NACA data at xoc positions)
+      dfdxoc            slope of camber line (NACA data at xoc positions)
+
+Outputs:
+    fof0                f/f0         at x0 == x/c positions 
+    dfof0dxoc         d(f/f0)/d(x/c) at x0 == x/c positions 
+
+    tot0                t/t0         at x0 == x/c positions 
+
+    alphaItilde         [deg] NACA data ideal angle of attack
+       CLItilde         [ ]   NACA data ideal lift coefficient
+      f0octilde         f0/c  NACA data for CLI == CLItilde   
+"""
+
+import numpy as np
+from scipy.interpolate import PchipInterpolator
+from scipy.integrate import trapezoid
+
+
+def GeometryFoil2D(Meanline=None, Thickness=None, x0=None):
+    """Return foil section geometry parameters.
+
+    Parameters
+    ----------
+    Meanline : str or int, optional
+        Meanline type:
+          0 or 'NACA a=0.8 (modified)'
+          1 or 'NACA a=0.8'
+          2 or 'parabolic'
+          'flat'
+    Thickness : str or int, optional
+        Thickness form:
+          1 or 'NACA 65A010'
+          2 or 'elliptic'
+          3 or 'parabolic'
+          4 or 'NACA 65A010 (Epps modified)' or 'NACA 65A010 (modified)'
+          5 or 'NACA 66 (DTRC modified)'
+          6 or 'NACA 00xx'
+    x0 : array_like, optional
+        Chord-wise positions x/c. Default: [0:0.1:1]
+
+    Returns
+    -------
+    f0octilde : float
+        f0/c NACA data for CLI == CLItilde
+    CLItilde : float
+        [ ] NACA data ideal lift coefficient
+    alphaItilde : float
+        [deg] NACA data ideal angle of attack
+    fof0 : ndarray
+        f/f0 at x0 == x/c positions 
+    dfof0dxoc : ndarray
+        d(f/f0)/d(x/c) at x0 == x/c positions 
+    tot0 : ndarray
+        t/t0 at x0 == x/c positions 
+    As0 : float
+        Cross-sectional area for c == t0 == 1
+    """
+
+    # Print available profiles if no arguments
+    if Meanline is None or Thickness is None:
+        print('')
+        print('Available meanline and thickness profiles:')
+        print('')
+        print('Available meanline profiles:')
+        print('  NACA a=0.8')
+        print('  NACA a=0.8 (modified)')
+        print('  parabolic')
+        print('  flat')
+        print('')
+        print('Available thickness profiles:')
+        print('  NACA 65A010')
+        print('  NACA 65A010 (Epps modified)') 
+        print('  NACA 66 (DTRC modified)') 
+        print('  NACA 00xx')
+        print('  elliptic') 
+        print('  parabolic')
+
+        # Return default values
+        if x0 is None:
+            x0 = np.arange(0, 1.1, 0.1)
+        x0 = np.asarray(x0).flatten()
+        n = len(x0)
+        return 0.0665, 1.0, 1.40, np.zeros(n), np.zeros(n), np.zeros(n), 0.0
+
+    # Default x0
+    if x0 is None:
+        x0 = np.arange(0, 1.1, 0.1)
+    x0 = np.asarray(x0).flatten()
+
+    # Normalize integer codes and string variations
+    if Meanline == 0 or Meanline == 'NACA a=0.8 (modified)':
+        Meanline = 'NACA a=0.8 (modified)'
+    elif Meanline == 1 or Meanline == 'NACA a=0.8':
+        Meanline = 'NACA a=0.8'
+    elif Meanline == 2 or Meanline == 'parabolic' or Meanline == 'Parabolic':
+        Meanline = 'parabolic'
+    elif Meanline == 'flat':
+        Meanline = 'flat'
+    else:
+        print(f'ERROR: Meanline type unknown: {Meanline}')
+        Meanline = 'NACA a=0.8 (modified)'  # Default
+
+    if Thickness == 1 or Thickness == 'NACA 65A010':
+        Thickness = 'NACA 65A010'
+    elif Thickness == 2 or Thickness == 'elliptic' or Thickness == 'elliptical':
+        Thickness = 'elliptic'
+    elif Thickness == 3 or Thickness == 'parabolic':
+        Thickness = 'parabolic'
+    elif Thickness == 4 or Thickness == 'NACA 65A010 (Epps modified)' or Thickness == 'NACA 65A010 (modified)':
+        Thickness = 'NACA 65A010 (Epps modified)'
+    elif Thickness == 5 or Thickness == 'NACA 66 (DTRC modified)' or Thickness == 'NACA66 (DTRC modified)' or Thickness == 'NACA66 (DTRC Modified)':
+        Thickness = 'NACA 66 (DTRC modified)'
+    elif Thickness == 6 or Thickness == 'NACA 00xx':
+        Thickness = 'NACA 00xx'
+    else:
+        print(f'ERROR: Thickness type unknown: {Thickness}')
+        Thickness = 'NACA 65A010'  # Default
+
+    # =========================================================================
+    # MEANLINE PROFILE
+    # =========================================================================
+
+    if Meanline == 'NACA a=0.8 (modified)':
+        xoc = np.array([0, .5, .75, 1.25, 2.5, 5, 7.5, 10, 15, 20, 25, 30, 35, 40, 45, 50,
+                       55, 60, 65, 70, 75, 80, 85, 90, 95, 100]) / 100
+
+        foc = np.array([0, 0.281, 0.396, 0.603, 1.055, 1.803, 2.432, 2.981, 3.903, 4.651, 5.257,
+                        5.742, 6.120, 6.394, 6.571, 6.651, 6.631, 6.508, 6.274, 5.913, 5.401,
+                        4.673, 3.607, 2.452, 1.226, 0]) / 100
+
+        dfdxoc = np.array([0.53699, 0.47539, 0.44004, 0.39531, 0.33404, 0.27149, 0.23378, 0.20618, 0.16546,
+                          0.13452, 0.10873, 0.08595, 0.06498, 0.04507, 0.02559, 0.00607,
+                          -0.01404, -0.03537, -0.05887, -0.08610, -0.12058, -0.18034, -0.23430,
+                          -0.24521, -0.24521, -0.24521])
+
+        alphaItilde = 1.40
+        CLItilde = 1.00
+        f0octilde = np.max(foc)
+
+        fof0 = foc / f0octilde
+        dfof0dxoc = dfdxoc / f0octilde
+
+        # Interpolate to x0
+        fof0 = PchipInterpolator(xoc, fof0)(x0)
+        dfof0dxoc = PchipInterpolator(xoc, dfof0dxoc)(x0)
+
+    elif Meanline == 'NACA a=0.8':
+        # Analytical NACA a=0.8 meanline using parametric equations
+        xcn = x0.copy()
+
+        # Handle x=0 specially to avoid log(0)
+        mask_zero = (xcn == 0)
+        xcn_calc = np.where(mask_zero, 1e-10, xcn)  # Replace zeros temporarily
+
+        a = 0.8
+        g = -1/(1-a) * (a**2 * (np.log(a)/2 - 1/4) + 1/4)
+        h = 1/(1-a) * ((1-a)**2 * np.log(1-a)/2 - (1-a)**2/4) + g
+
+        C1 = np.maximum(1 - xcn_calc, 1e-6)
+        CA = a - xcn_calc
+
+        # Avoid division by zero
+        CA = np.where(np.abs(CA) < 1e-6, CA + 1e-5, CA)
+
+        P = 0.5 * CA**2 * np.log(np.abs(CA)) - 0.5 * C1**2 * np.log(C1) + 0.25 * (C1**2 - CA**2)
+
+        # Camber distribution
+        F = (P/(1-a) - xcn_calc * np.log(xcn_calc) + g - h * xcn_calc) / (2 * np.pi * (a + 1))
+
+        # Slope of meanline
+        B = ((-CA * np.log(np.abs(CA)) + C1 * np.log(C1)) / (1-a) - np.log(xcn_calc) - 1 - h) / (2 * np.pi * (a + 1))
+
+        maxF = 0.067943423879
+
+        fof0 = F / maxF
+        dfdx = B / maxF
+
+        # Handle leading edge (x0 = 0) after calculation
+        if np.any(mask_zero):
+            fof0[mask_zero] = 0
+            if len(x0) > 1:
+                # Extrapolate slope at x=0
+                idx_nonzero = np.where(~mask_zero)[0]
+                if len(idx_nonzero) > 1:
+                    dfdx[mask_zero] = np.interp(0, x0[idx_nonzero], dfdx[idx_nonzero])
+
+        alphaItilde = 1.54
+        CLItilde = 1.00
+        f0octilde = maxF
+
+        dfof0dxoc = dfdx
+
+    elif Meanline == 'parabolic':
+        alphaItilde = 0
+        CLItilde = 1
+        f0octilde = 1 / (4 * np.pi)
+
+        fof0 = 1 - (2 * (x0 - 0.5))**2
+        dfof0dxoc = -8 * (x0 - 0.5)
+
+    elif Meanline == 'flat':
+        alphaItilde = 0
+        CLItilde = 1
+        f0octilde = 0
+
+        fof0 = np.zeros_like(x0)
+        dfof0dxoc = np.zeros_like(x0)
+
+    else:
+        # Default to NACA a=0.8 (modified)
+        alphaItilde = 1.40
+        CLItilde = 1.00
+        f0octilde = 0.0665
+        fof0 = np.zeros_like(x0)
+        dfof0dxoc = np.zeros_like(x0)
+
+    # =========================================================================
+    # THICKNESS PROFILE
+    # =========================================================================
+
+    if Thickness == 'NACA 65A010':
+        xoc = np.array([0, .5, .75, 1.25, 2.5, 5, 7.5, 10, 15, 20, 25, 30, 35, 40, 45, 50,
+                       55, 60, 65, 70, 75, 80, 85, 90, 95, 100]) / 100
+
+        toc = np.array([0, .765, .928, 1.183, 1.623, 2.182, 2.65, 3.04, 3.658, 4.127,
+                       4.483, 4.742, 4.912, 4.995, 4.983, 4.863, 4.632, 4.304,
+                       3.899, 3.432, 2.912, 2.352, 1.771, 1.188, .604, .021]) / 100
+
+        tot0 = toc / np.max(toc)
+        tot0 = PchipInterpolator(xoc, tot0)(x0)
+
+        As0 = 0.6771
+
+    elif Thickness == 'NACA 65A010 (Epps modified)':
+        xoc = np.array([0, 0.005000000000000, 0.007500000000000, 0.012500000000000,
+                       0.025000000000000, 0.050000000000000, 0.075000000000000, 0.100000000000000,
+                       0.150000000000000, 0.200000000000000, 0.250000000000000, 0.300000000000000,
+                       0.350000000000000, 0.400000000000000, 0.471204188481675, 0.523560209424084,
+                       0.575916230366492, 0.628272251308901, 0.680628272251309, 0.732984293193717,
+                       0.785340314136126, 0.837696335078534, 0.890052356020942, 0.942408376963351,
+                       0.968586387434555, 0.981675392670157, 0.989528795811518, 0.994764397905759,
+                       0.997382198952880, 1.000000000000000])
+
+        toc = np.array([0, 0.007650000000000, 0.009280000000000, 0.011830000000000,
+                       0.016230000000000, 0.021820000000000, 0.026500000000000, 0.030400000000000,
+                       0.036580000000000, 0.041270000000000, 0.044830000000000, 0.047420000000000,
+                       0.049120000000000, 0.049950000000000, 0.049830000000000, 0.048630000000000,
+                       0.046320000000000, 0.043040000000000, 0.038990000000000, 0.034320000000000,
+                       0.029120000000000, 0.023520000000000, 0.017710000000000, 0.011880000000000,
+                       0.008960000000000, 0.007499530848329, 0.006623639691517, 0.006040000000000,
+                       0.004049015364794, 0.000210000000000])
+
+        tot0 = toc / np.max(toc)
+        tot0 = PchipInterpolator(xoc, tot0)(x0)
+
+        As0 = 0.7107
+
+    elif Thickness == 'NACA 66 (DTRC modified)':
+        xoc = np.array([0.0000, 0.0125, 0.0250, 0.0500, 0.0750, 0.1000, 0.1500, 0.2000, 0.3000, 0.4000, 
+                       0.4500, 0.5000, 0.6000, 0.7000, 0.8000, 0.9000, 0.9500, 1.0000])
+
+        tot0 = np.array([0.0000, 0.2088, 0.2932, 0.4132, 0.5050, 0.5814, 0.7042, 0.8000, 0.9274, 0.9904, 
+                        1.0000, 0.9924, 0.9306, 0.8070, 0.6220, 0.3754, 0.2286, 0.0666])
+
+        tot0 = PchipInterpolator(xoc, tot0)(x0)
+
+        As0 = 0.7207
+
+    elif Thickness == 'NACA 00xx':
+        # NACA 4-digit airfoil thickness formula
+        yot0 = (0.29690 * np.sqrt(x0) 
+                - 0.12600 * x0 
+                - 0.35160 * x0**2 
+                + 0.28430 * x0**3 
+                - 0.10150 * x0**4) / 0.20
+
+        tot0 = 2 * yot0
+
+        As0 = 0.3425
+
+    elif Thickness == 'elliptic':
+        tot0 = np.sqrt(1 - (2 * (x0 - 0.5))**2)
+        As0 = np.pi / 4
+
+    elif Thickness == 'parabolic':
+        tot0 = 1 - (2 * (x0 - 0.5))**2
+        As0 = 2 / 3
+
+    else:
+        # Default
+        tot0 = np.zeros_like(x0)
+        As0 = 0.0
+
+    return f0octilde, CLItilde, alphaItilde, fof0, dfof0dxoc, tot0, As0

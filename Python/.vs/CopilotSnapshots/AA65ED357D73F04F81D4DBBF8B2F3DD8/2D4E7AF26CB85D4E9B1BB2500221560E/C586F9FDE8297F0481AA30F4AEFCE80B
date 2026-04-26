@@ -1,0 +1,451 @@
+﻿# ----------------------------------------------------------------------- #
+#                                                                         #
+#                              0111000                                    #
+#                           100 1 100 001                                 #
+#                         10    1  1  1 00                                #
+#                        01  1  1  1      0                               #
+#                       0 1  1  1   1  1 1 0                              #
+#                       0   1   1   1  1  1 0                             #
+#                       0 1     1   1  1  1 0                             #
+#                       0 1  1  1   1  0  1 0                             #
+#                       0 1  1  1   0  1    0                             #
+#                       01 1        1  1 1 0                              #
+#                        0    0  1  0 1   0                               #
+#                         0         1    0                                #
+#                    10010 0 1101111110111                                #
+#                  10 1 1  1111111111 11 11                               #
+#                 0 1 1 1 11111111101011010111                            #
+#                01 11    11111111 1  1    1 110                          #
+#               011    1 1 111111110011  1 1 1 110                        #
+#               0   11 1 1 1 111      0  1 1 1   10                       #
+#               0 1   11  1  0         1 1 1 1 1 1 0                      #
+#               1  11 1 1   11          0  1 1 1 1 11                     #
+#                0     1 1  0           011  1 1 1 10                     #
+#                10 1   1  0             0  1 1 1  11                     #
+#                 10     01               01      10                      #
+#                   10001                   001 100                       #
+#                                             111                         #
+#                                                                         #
+#             ____                   _____                                #
+#            / __ \                 |  __ \                               #
+#           | |  | |_ __   ___ _ __ | |__) | __ ___  _ __                 #
+#           | |  | | '_ \ / _ \ '_ \|  ___/ '__/ _ \| '_ \                #
+#           | |__| | |_) |  __/ | | | |   | | | (_) | |_) |               #
+#            \____/| .__/ \___|_| |_|_|   |_|  \___/| .__/                #
+#                  | |                              | |                   #
+#                  |_|                              |_|                   #
+#                                                                         #
+#             An integrated rotor design and analysis tool.               #
+#                                                                         #
+#                                                                         #
+# Copyright (C) 2011, Brenden Epps.                                       #
+#                                                                         #
+# This program is free software; you can redistribute it and/or modify it #
+# under the terms of the GNU General Public License as published by the   #
+# Free Software Foundation.                                               #
+#                                                                         #
+# This program is distributed in the hope that it will be useful, but     #
+# WITHOUT ANY WARRANTY; without even the implied warranty of              #
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                    #
+# See the GNU General Public License for more details.                    #
+#                                                                         #
+# ----------------------------------------------------------------------- #
+
+"""
+Horseshoe_intr_110830 - Compute interaction horseshoe influence functions
+
+Created: 8/30/2011, Brenden Epps
+Ported to Python: 2024
+
+This function computes the interaction horseshoe influence functions in 
+the axial, tangential, and radial directions: UAHIF21, UTHIF21, URHIF21.
+
+UAHIF21(m,n) = influence of n-th horseshoe vortex shed from propulsor component 1 (M1 panels) 
+                     on the m-th control point of                     component 2 (M2 panels).
+
+Two interaction types supported:
+  1. 'rotor-rotor' interactions
+  2. 'rotor-duct' interactions
+"""
+
+import numpy as np
+from scipy.special import ellipk, ellipe, ellipkinc, ellipeinc
+
+
+def Horseshoe_intr_110830(XC2, RC2, RC1, TANBIC1, RV1, Z1,
+                          Hub_flag, Rhub_oR1, Duct_flag, Rduct_oR1):
+    """Compute influence of propeller horseshoe vortices on another component.
+
+    Ported from SourceCode/Horseshoe_intr_110830.m
+
+    Parameters
+    ----------
+    XC2 : array_like or float
+        Axial positions of component 2 control points (x/R)
+        Scalar for rotor-rotor, array for rotor-duct
+    RC2 : array_like or float
+        Radial positions of component 2 control points (r/R)
+        Array for rotor-rotor, scalar for rotor-duct
+    RC1 : array_like, shape (M1,)
+        Component 1 control-point radii (r/R)
+    TANBIC1 : array_like, shape (M1,)
+        tan(beta_i) at component 1 control points
+    RV1 : array_like, shape (M1+1,)
+        Component 1 vortex-point radii (r/R)
+    Z1 : int
+        Number of component 1 blades
+    Hub_flag : int
+        1 to include hub image vortices, 0 otherwise
+    Rhub_oR1 : float
+        Hub radius / component 1 radius
+    Duct_flag : int
+        1 to include duct image vortices, 0 otherwise
+    Rduct_oR1 : float
+        Duct radius / component 1 radius
+
+    Returns
+    -------
+    UAHIF21 : ndarray, shape (M2, M1)
+        Axial influence functions (times TANBIC)
+    UTHIF21 : ndarray, shape (M2, M1)
+        Tangential influence functions
+    URHIF21 : ndarray, shape (M2, M1)
+        Radial influence functions (times TANBIC)
+    """
+    # Convert inputs to arrays
+    XC2_arr = np.atleast_1d(np.asarray(XC2, dtype=float))
+    RC2_arr = np.atleast_1d(np.asarray(RC2, dtype=float))
+    RC1 = np.asarray(RC1, dtype=float)
+    TANBIC1 = np.asarray(TANBIC1, dtype=float)
+    RV1 = np.asarray(RV1, dtype=float)
+
+    M1 = len(RC1)
+
+    # Determine interaction type based on input dimensions
+    if len(RC2_arr) > 1 and len(XC2_arr) == 1:
+        # rotor-rotor case
+        Interaction_type = 'rotor-rotor'
+        M2 = len(RC2_arr)
+        XC2_arr = XC2_arr[0] * np.ones(M2)
+        RC2 = RC2_arr
+        XC2 = XC2_arr
+        Compute_flag = [1, 1, 0]  # [UA, UT, UR]
+
+    elif len(XC2_arr) > 1 and len(RC2_arr) == 1:
+        # rotor-duct case
+        Interaction_type = 'rotor-duct'
+        M2 = len(XC2_arr)
+        if RC2_arr[0] < 1.05:
+            RC2_arr[0] = 1.05  # prevent singularity
+        RC2 = RC2_arr[0] * np.ones(M2)
+        XC2 = XC2_arr
+        Compute_flag = [1, 0, 1]  # [UA, UT, UR]
+
+    elif len(XC2_arr) != len(RC2_arr):
+        raise ValueError('(Horseshoe_intr_110830) ERROR: Must have equal number of given radii and axial control point locations.')
+    else:
+        # General case
+        Interaction_type = 'rotor-rotor'
+        Compute_flag = [1, 1, 1]
+        M2 = len(XC2_arr)
+        XC2 = XC2_arr
+        RC2 = RC2_arr
+
+    # Initialize output matrices
+    UAHIF21 = np.zeros((M2, M1))
+    UTHIF21 = np.zeros((M2, M1))
+    URHIF21 = np.zeros((M2, M1))
+
+    Compute_UA = Compute_flag[0]
+    Compute_UT = Compute_flag[1]
+    Compute_UR = Compute_flag[2]
+
+    # =========================================================================
+    # ROTOR-ROTOR INTERACTION
+    # =========================================================================
+    if Interaction_type == 'rotor-rotor':
+        # Radial interpolation points
+        RP = np.concatenate([
+            RC2[RC2 < RV1[0]],
+            [RV1[0]],
+            RC1,
+            [RV1[M1]],
+            RC2[RC2 > RV1[M1]]
+        ])
+
+        Mfor = len(RC2[RC2 < RV1[0]]) + 1
+        Maft = 1 + len(RC2[RC2 > RV1[M1]])
+        Mp = len(RP)
+
+        UAHIFtemp = np.zeros((Mp, M1))
+        UTHIFtemp = np.zeros((Mp, M1))
+        URHIFtemp = np.zeros((Mp, M1))
+
+        # Compute axial influence function
+        if Compute_UA == 1:
+            for m in range(Mp):
+                for n in range(M1):
+                    UA1 = HoughUA(XC2[0], RP[m], TANBIC1[n]*RC1[n]/RV1[n+1], RV1[n+1], Z1)
+                    UA2 = HoughUA(XC2[0], RP[m], TANBIC1[n]*RC1[n]/RV1[n], RV1[n], Z1)
+
+                    if Hub_flag == 1:
+                        UA1_h = HoughUA(XC2[0], RP[m], TANBIC1[n]*RC1[n]/(Rhub_oR1**2/RV1[n+1]),
+                                       Rhub_oR1**2/RV1[n+1], Z1)
+                        UA2_h = HoughUA(XC2[0], RP[m], TANBIC1[n]*RC1[n]/(Rhub_oR1**2/RV1[n]),
+                                       Rhub_oR1**2/RV1[n], Z1)
+                        UA1 = UA1 - UA1_h
+                        UA2 = UA2 - UA2_h
+
+                    if Duct_flag == 1:
+                        UA1_d = HoughUA(XC2[0], RP[m], TANBIC1[n]*RC1[n]/(Rduct_oR1**2/RV1[n+1]),
+                                       Rduct_oR1**2/RV1[n+1], Z1)
+                        UA2_d = HoughUA(XC2[0], RP[m], TANBIC1[n]*RC1[n]/(Rduct_oR1**2/RV1[n]),
+                                       Rduct_oR1**2/RV1[n], Z1)
+                        UA1 = UA1 - UA1_d
+                        UA2 = UA2 - UA2_d
+
+                    UAHIFtemp[m, n] = UA1 - UA2
+
+        # Compute radial influence function
+        if Compute_UR == 1:
+            for m in range(Mp):
+                for n in range(M1):
+                    UR1 = HoughUR(XC2[0], RP[m], TANBIC1[n]*RC1[n]/RV1[n+1], RV1[n+1], Z1)
+                    UR2 = HoughUR(XC2[0], RP[m], TANBIC1[n]*RC1[n]/RV1[n], RV1[n], Z1)
+
+                    if Hub_flag == 1:
+                        UR1_h = HoughUR(XC2[0], RP[m], TANBIC1[n]*RC1[n]/(Rhub_oR1**2/RV1[n+1]),
+                                       Rhub_oR1**2/RV1[n+1], Z1)
+                        UR2_h = HoughUR(XC2[0], RP[m], TANBIC1[n]*RC1[n]/(Rhub_oR1**2/RV1[n]),
+                                       Rhub_oR1**2/RV1[n], Z1)
+                        UR1 = UR1 - UR1_h
+                        UR2 = UR2 - UR2_h
+
+                    if Duct_flag == 1:
+                        UR1_d = HoughUR(XC2[0], RP[m], TANBIC1[n]*RC1[n]/(Rduct_oR1**2/RV1[n+1]),
+                                       Rduct_oR1**2/RV1[n+1], Z1)
+                        UR2_d = HoughUR(XC2[0], RP[m], TANBIC1[n]*RC1[n]/(Rduct_oR1**2/RV1[n]),
+                                       Rduct_oR1**2/RV1[n], Z1)
+                        UR1 = UR1 - UR1_d
+                        UR2 = UR2 - UR2_d
+
+                    URHIFtemp[m, n] = UR1 - UR2
+
+        # Compute tangential influence function
+        if Compute_UT == 1:
+            for n in range(M1):
+                i = Mfor + n
+
+                if XC2[0] > 0:
+                    UTHIFtemp[i, n] = Z1 / RC1[n]
+                elif XC2[0] == 0:
+                    UTHIFtemp[i, n] = Z1 / (2 * RC1[n])
+                else:
+                    UTHIFtemp[i, n] = 0
+
+        # Perform linear interpolation to RC2 points
+        for m in range(M2):
+            # Find bracketing indices
+            i = np.searchsorted(RP, RC2[m]) - 1
+            i = max(0, min(i, Mp-2))
+
+            # Linear interpolation parameter
+            s = (RC2[m] - RP[i]) / (RP[i+1] - RP[i]) if RP[i+1] != RP[i] else 0
+
+            for n in range(M1):
+                UAHIF21[m, n] = (1-s) * UAHIFtemp[i, n] + s * UAHIFtemp[i+1, n]
+                UTHIF21[m, n] = (1-s) * UTHIFtemp[i, n] + s * UTHIFtemp[i+1, n]
+                URHIF21[m, n] = (1-s) * URHIFtemp[i, n] + s * URHIFtemp[i+1, n]
+
+    # =========================================================================
+    # ROTOR-DUCT INTERACTION
+    # =========================================================================
+    elif Interaction_type == 'rotor-duct':
+        # No radial interpolation necessary
+        # No hub or duct images used
+        # UTHIF21 is zero since RC2 > RV1[-1]
+
+        for m in range(M2):
+            for n in range(M1):
+                # Axial influence
+                UA1 = HoughUA(XC2[m], RC2[m], TANBIC1[n]*RC1[n]/RV1[n+1], RV1[n+1], Z1)
+                UA2 = HoughUA(XC2[m], RC2[m], TANBIC1[n]*RC1[n]/RV1[n], RV1[n], Z1)
+                UAHIF21[m, n] = UA1 - UA2
+
+                # Radial influence
+                UR1 = HoughUR(XC2[m], RC2[m], TANBIC1[n]*RC1[n]/RV1[n+1], RV1[n+1], Z1)
+                UR2 = HoughUR(XC2[m], RC2[m], TANBIC1[n]*RC1[n]/RV1[n], RV1[n], Z1)
+                URHIF21[m, n] = UR1 - UR2
+
+    return UAHIF21, UTHIF21, URHIF21
+
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+def HoughUA(xc, rc, tanbiv, rv, Z):
+    """Circumferential mean axial induced velocity * (2*pi*R).
+
+    Velocity induced at control point (xc,rc) by a set of Z unit-strength
+    trailing vortices shed at (x=0,rv) with pitch tanbiv.
+
+    Parameters
+    ----------
+    xc : float
+        Distance downstream of lifting line (negative for upstream)
+    rc : float
+        Control point radius (normalized by R)
+    tanbiv : float
+        Tangent of vortex helix angle at radius rv
+    rv : float
+        Vortex point radius (normalized by R)
+    Z : int
+        Number of blades
+
+    Returns
+    -------
+    UA : float
+        Axial induced velocity * (2*pi*R)
+    """
+    epsilon = 0.025  # small number to prevent singularity
+
+    # Argument for Legendre functions
+    z = 1 + (xc**2 + (rc - rv)**2 + epsilon**2) / (2 * rc * rv)
+
+    Q_Mhalf = Legendre_2nd_kind_minus_half_order(z)
+
+    # Heuman Lambda Function
+    s = np.arcsin(xc / np.sqrt(xc**2 + (rc - rv)**2 + epsilon**2))
+    t = np.sqrt(4 * rc * rv / (xc**2 + (rc + rv)**2))
+
+    Heuman_Lambda = Heuman(s, t)
+
+    # K1 constant
+    if (rc <= rv and xc < 0) or (rc < rv and xc >= 0):
+        K1 = np.pi + xc / (2 * np.sqrt(rc * rv)) * Q_Mhalf + np.pi/2 * Heuman_Lambda
+    else:
+        K1 = xc / (2 * np.sqrt(rc * rv)) * Q_Mhalf - np.pi/2 * Heuman_Lambda
+
+    if np.isnan(K1):
+        K1 = 0
+
+    # Axial induced velocity
+    UA = Z * K1 / (2 * np.pi * rv * tanbiv)
+
+    return UA
+
+
+def HoughUR(xc, rc, tanbiv, rv, Z):
+    """Circumferential mean radial induced velocity * (2*pi*R).
+
+    Parameters
+    ----------
+    xc : float
+        Distance downstream of lifting line
+    rc : float
+        Control point radius
+    tanbiv : float
+        Tangent of vortex helix angle
+    rv : float
+        Vortex point radius
+    Z : int
+        Number of blades
+
+    Returns
+    -------
+    UR : float
+        Radial induced velocity * (2*pi*R)
+    """
+    epsilon = 0.025
+
+    z = 1 + (xc**2 + (rc - rv)**2 + epsilon**2) / (2 * rc * rv)
+
+    Q_half = Legendre_2nd_kind_half_order(z)
+
+    UR = -Z / (2 * np.pi * np.sqrt(rc)) * (1 / (rv * tanbiv)) * np.sqrt(rv) * Q_half
+
+    return UR
+
+
+def Heuman(phi, k):
+    """Heuman's Lambda function.
+
+    Reference: Abramowitz and Stegun, section 17.4.39, p.595, 1972
+
+    Parameters
+    ----------
+    phi : float
+        Amplitude (radians)
+    k : float
+        Modulus
+
+    Returns
+    -------
+    H : float
+        Heuman's Lambda function value
+    """
+    # Complete elliptic integrals
+    K = ellipk(k**2)
+    E = ellipe(k**2)
+
+    # Modular angle
+    alpha = np.arcsin(k)
+
+    # Incomplete elliptic integrals
+    m_comp = np.sin(np.pi/2 - alpha)**2
+    F = ellipkinc(phi, m_comp)
+    EE = ellipeinc(phi, m_comp)
+
+    H = 2/np.pi * (K * EE - (K - E) * F)
+
+    return H
+
+
+def Legendre_2nd_kind_half_order(z):
+    """Legendre function of second kind and positive half order.
+
+    Reference: Abramowitz and Stegun, 1972, p.337, equation 8.13.7
+
+    Parameters
+    ----------
+    z : float or ndarray
+        Argument (z > 1)
+
+    Returns
+    -------
+    Q_half : float or ndarray
+        Q_{1/2}(z)
+    """
+    k = np.sqrt(2 / (z + 1))
+
+    K = ellipk(k**2)
+    E = ellipe(k**2)
+
+    Q_half = z * k * K - np.sqrt(2 * (z + 1)) * E
+
+    return Q_half
+
+
+def Legendre_2nd_kind_minus_half_order(z):
+    """Legendre function of second kind and negative half order.
+
+    Reference: Abramowitz and Stegun, 1972, p.337, equation 8.13.3
+
+    Parameters
+    ----------
+    z : float or ndarray
+        Argument (z > 1)
+
+    Returns
+    -------
+    Q_Mhalf : float or ndarray
+        Q_{-1/2}(z)
+    """
+    k = np.sqrt(2 / (z + 1))
+
+    K = ellipk(k**2)
+
+    Q_Mhalf = k * K
+
+    return Q_Mhalf

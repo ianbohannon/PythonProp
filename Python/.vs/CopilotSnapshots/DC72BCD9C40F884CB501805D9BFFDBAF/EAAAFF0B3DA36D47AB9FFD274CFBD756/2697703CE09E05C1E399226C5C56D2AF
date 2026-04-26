@@ -1,0 +1,197 @@
+﻿"""Compute propeller blade forces (thrust and torque) — full port of Forces.m."""
+
+import numpy as np
+from scipy.interpolate import pchip_interpolate
+from scipy.integrate import trapezoid
+
+
+def Forces(RC, DR, VAC, VTC, UASTAR, UTSTAR, UADUCT, CD, CoD, G, 
+           Z, Js, VMIV, Hub_flag, Rhub_oR, Rhv, CTD):
+    """Compute thrust, torque, power coefficients and efficiency.
+
+    Ported from ``SourceCode/Forces.m`` (OpenProp v3.3.4).
+
+    This function computes the thrust, torque, and power coefficients, and 
+    it computes the efficiency of the propeller.
+
+    Parameters
+    ----------
+    RC : array_like, shape (Mp,)
+        Radius of control point / R.
+    DR : array_like, shape (Mp,)
+        Vortex panel width / R.
+    VAC : array_like, shape (Mp,)
+        Axial inflow velocity / Vs at control points.
+    VTC : array_like, shape (Mp,)
+        Tangential inflow velocity / Vs at control points.
+    UASTAR : array_like, shape (Mp,)
+        Axial induced velocity / Vs at control points.
+    UTSTAR : array_like, shape (Mp,)
+        Tangential induced velocity / Vs at control points.
+    UADUCT : array_like, shape (Mp,)
+        Axial velocity induced by duct / Vs at control points.
+    CD : array_like, shape (Mp,)
+        Section drag coefficients.
+    CoD : array_like, shape (Mp,)
+        Section chord length / D (propeller diameter).
+    G : array_like, shape (Mp,)
+        Circulation / (2*pi*R*Vs).
+    Z : int
+        Number of blades.
+    Js : float
+        Advance coefficient Vs/(n*D).
+    VMIV : float
+        Volumetric mean inflow velocity / Vs.
+    Hub_flag : int
+        Hub image flag (1 = yes, 0 = no).
+    Rhub_oR : float
+        Hub radius / R.
+    Rhv : float
+        Hub vortex radius / hub radius.
+    CTD : float
+        CT for the duct (CTD == 0 for no duct).
+
+    Returns
+    -------
+    CT : float
+        Thrust coefficient == thrust / (0.5*rho*Vs^2*pi*R^2).
+    CQ : float
+        Torque coefficient == torque / (0.5*rho*Vs^2*pi*R^3).
+    CP : float
+        Power coefficient == power / (0.5*rho*Vs^3*pi*R^2).
+    KT : float
+        Thrust coefficient == thrust / (rho*n^2*D^4).
+    KQ : float
+        Torque coefficient == torque / (rho*n^2*D^5).
+    CTH : float
+        Hub image thrust coefficient (negative, since actually drag).
+        CTH == (-hub drag) / (0.5*rho*Vs^2*pi*R^2).
+    TAU : float
+        Thrust ratio == rotor thrust / total thrust.
+    Ja : float
+        Inflow-adapted advance coefficient == Va/(n*D).
+    Jw : float
+        Wake-adapted advance coefficient == Vw/(n*D).
+    VMWV : float
+        Volumetric mean wake velocity / Vs.
+    EFFYo : float
+        Open-water efficiency == thrust*Vs / torque*(2*pi*n).
+    EFFY : float
+        Inflow-adapted efficiency == thrust*Va / torque*(2*pi*n).
+        (Also known as EFFYa by convention in Kerwin).
+    ADEFFY : float
+        Inflow-adapted actuator disk efficiency.
+    QF : float
+        Inflow-adapted quality factor == EFFYa/ADEFa.
+    QFo : float
+        Open-water quality factor == EFFYo/ADEFo.
+    QFw : float
+        Wake-adapted quality factor == EFFYw/ADEFw.
+
+    Notes
+    -----
+    Define:
+        Va == VMIV*Vs     volumetric mean inflow velocity (dimensional)
+        Vw == VMWV*Vs     volumetric mean wake   velocity (dimensional)
+
+    Additional derived quantities:
+        Ja == Va/(n*D)    inflow-adapted advance coefficient
+        Jw == Vw/(n*D)    wake-adapted advance coefficient
+
+        EFFYo             open-water efficiency
+        EFFYa == EFFY     inflow-adapted efficiency (convention)
+        EFFYw             wake-adapted efficiency
+
+        ADEFo             open-water actuator disk efficiency
+        ADEFa == ADEFFY   inflow-adapted actuator disk efficiency (convention)
+        ADEFw             wake-adapted actuator disk efficiency
+
+        QFo == EFFYo/ADEFo    open-water quality factor
+        QFa == EFFYa/ADEFa    inflow-adapted quality factor (returned as QF)
+        QFw == EFFYw/ADEFw    wake-adapted quality factor
+
+    References
+    ----------
+    Kerwin, J. E. (2001). Hydrofoils and Propellers. MIT Course Notes.
+    """
+    RC     = np.asarray(RC,     dtype=float)
+    DR     = np.asarray(DR,     dtype=float)
+    VAC    = np.asarray(VAC,    dtype=float)
+    VTC    = np.asarray(VTC,    dtype=float)
+    UASTAR = np.asarray(UASTAR, dtype=float)
+    UTSTAR = np.asarray(UTSTAR, dtype=float)
+    UADUCT = np.asarray(UADUCT, dtype=float)
+    CD     = np.asarray(CD,     dtype=float)
+    CoD    = np.asarray(CoD,    dtype=float)
+    G      = np.asarray(G,      dtype=float)
+
+    # ------------------------------------ Volumetric Mean Wake Velocity (VMWV)
+    XRtemp  = np.linspace(Rhub_oR, 1.0, 100)
+    XVAtemp = pchip_interpolate(RC, VAC + UADUCT + UASTAR, XRtemp)
+    VMWV    = 2.0 * trapezoid(XRtemp * XVAtemp, XRtemp) / (1.0 - Rhub_oR ** 2)
+    # -------------------------------------------------------------------------
+
+    # --------------------------------------- Wake-adapted advance coefficients
+    Ja = Js * VMIV
+    Jw = Js * VMWV
+    # -------------------------------------------------------------------------
+
+    # -------------------------------------------------------------------------
+    VSTAR     = np.sqrt((VAC + UADUCT + UASTAR) ** 2 +
+                        (np.pi * RC / Js + VTC + UTSTAR) ** 2)
+
+    sin_BetaI = (UADUCT + VAC + UASTAR) / VSTAR
+    cos_BetaI = (np.pi * RC / Js + VTC + UTSTAR) / VSTAR
+    # -------------------------------------------------------------------------
+
+    # -------------------------------------------------------------------------
+    CTP = 4.0 * Z * np.sum(
+        (VSTAR * G * cos_BetaI
+         - (1.0 / (2.0 * np.pi)) * VSTAR ** 2 * CoD * CD * sin_BetaI) * DR
+    )
+    CQ = 4.0 * Z * np.sum(
+        (VSTAR * G * sin_BetaI
+         + (1.0 / (2.0 * np.pi)) * VSTAR ** 2 * CoD * CD * cos_BetaI) * RC * DR
+    )
+    # -------------------------------------------------------------------------
+
+    # ----------------- Compute hub effect on thrust coefficient (Kerwin p.181)
+    if Hub_flag == 1:
+        CTH = -0.5 * (np.log(1.0 / Rhv) + 3.0) * (Z * G[0]) ** 2  # Kerwin eqn 260, p.184
+    else:
+        CTH = 0.0
+    # -------------------------------------------------------------------------
+
+    CT  = CTP + CTH + CTD  # total thrust coefficient
+    TAU = (CTP + CTH) / CT if CT != 0.0 else 1.0  # thrust ratio (where CTP+CTH is the net rotor thrust)
+    CP  = CQ * 2.0 * np.pi  # power coefficient based on torque
+
+    # KTP = CTP * Js ** 2 * np.pi / 8.0   # propeller thrust coefficient
+    KT = CT * Js ** 2 * np.pi / 8.0       # total thrust coefficient
+    KQ = CQ * Js ** 2 * np.pi / 16.0      # total torque coefficient
+    # -------------------------------------------------------------------------
+
+    # -------------------------------------- Meaningful for propeller case only
+    EFFYo = Js * CT / CP if CP != 0.0 else 0.0    # open-water efficiency
+    EFFY  = EFFYo * VMIV                          # inflow-adapted efficiency, EFFY === EFFYa by convention (Kerwin)
+    # EFFYw = EFFYo * VMWV                   # wake-adapted efficiency
+
+    # Actuator-disk efficiencies
+    ADEFo  = 2.0 * Js / (Js + np.sqrt(Js ** 2 + TAU * (8.0 / np.pi) * KT))  # == 2/(1+sqrt(1+TAU*CT));        open-water actuator disk efficiency
+    ADEFFY = 2.0 * Ja / (Ja + np.sqrt(Ja ** 2 + TAU * (8.0 / np.pi) * KT))  # == 2/(1+sqrt(1+TAU*CT/VMIV^2)); inflow-adapted actuator disk efficiency
+    # ADEFw  = 2.0 * Jw / (Jw + np.sqrt(Jw ** 2 + TAU * (8.0 / np.pi) * KT))  # == 2/(1+sqrt(1+TAU*CT/VMWV^2)); wake-adapted actuator disk efficiency
+
+    QFo = (1.0 / (4.0 * np.pi)) * (KT / KQ) * (Js + np.sqrt(Js ** 2 + TAU * (8.0 / np.pi) * KT))  # == EFFYo/ADEFo, open-water quality factor
+    QF  = (1.0 / (4.0 * np.pi)) * (KT / KQ) * (Ja + np.sqrt(Ja ** 2 + TAU * (8.0 / np.pi) * KT))  # == EFFYa/ADEFa, inflow-adapted quality factor
+    QFw = (1.0 / (4.0 * np.pi)) * (KT / KQ) * (Jw + np.sqrt(Jw ** 2 + TAU * (8.0 / np.pi) * KT))  # == EFFYw/ADEFw, wake-adapted quality factor
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+
+    return (CT, CQ, CP, KT, KQ,
+            CTH, TAU,
+            Ja, Jw, VMWV,
+            EFFYo, EFFY, ADEFFY, QF, QFo, QFw)
+
+
+# ===================================================== END Forces Function
+# =========================================================================

@@ -1,0 +1,747 @@
+﻿# Port target: SourceCode/Analyze.m
+"""Analyze off-design operating states for a given propeller design.
+
+This function computes the "states" of a given propeller/turbine "design"
+at given off-design tip speed ratios.
+
+Method:
+    Newton solver with state variables: (VSTAR, ALPHA, CL, G), size [4*Mp, 1]
+    with (UASTAR, UTSTAR, TANBIC,...) updated between iterations.
+
+Ported from OpenProp v3.3.4 SourceCode/Analyze.m
+"""
+
+import numpy as np
+from scipy.interpolate import pchip_interpolate
+
+from Horseshoe110628 import Horseshoe110628
+from Horseshoe_intr_110830 import Horseshoe_intr_110830
+from Forces import Forces
+from RepairSpline import RepairSplineMatrix
+from InterpolateChord import InterpolateChord
+from Duct_Thrust import Duct_Thrust
+
+
+def Analyze(pt, LAMBDAall, feather=0.0):
+    """Compute performance across a range of advance coefficients.
+
+    Parameters
+    ----------
+    pt : dict
+        Propeller/turbine data structure (must include ``pt['input']`` and
+        ``pt['design']``).
+    LAMBDAall : array_like
+        Tip-speed ratios (omega*R/Vs) at which to evaluate performance.
+    feather : float, optional
+        Feathering angle [deg], pitch angle displacement relative to design
+        geometry (for controllable-pitch rotors). Default is 0.
+
+    Returns
+    -------
+    states : dict
+        Off-design states dictionary containing performance metrics at each
+        operating point in LAMBDAall.
+    """
+    feather = np.deg2rad(feather)  # Convert to radians
+
+    # Handle legacy field names
+    if 'i' in pt and 'input' not in pt:
+        pt['input'] = pt['i']
+    if 'd' in pt and 'design' not in pt:
+        pt['design'] = pt['d']
+
+    design = pt['design']
+    input_dict = pt['input']
+
+    # ========================================================== Error checking
+    Wake_flag = input_dict.get('Wake_flag', 0)
+    if Wake_flag == 1:
+        print('ERROR: Wake_Horseshoe(...) is no longer supported')
+        return {}
+
+    # -------------------------------------------------------------------------
+    Duct_flag = input_dict.get('Duct_flag', 0)
+
+    if Duct_flag == 1:
+        Rduct_oR = design['Rduct_oR']
+        Cduct_oR = design['Cduct_oR']
+        Xduct_oR = design['Xduct_oR']
+        RC = design['RC']
+        RV = design['RV']
+        Z = input_dict['Z']
+        Hub_flag = input_dict['Hub_flag']
+        Rhub_oR = design['Rhub_oR']
+
+        print(' ')
+        print('Computing rotor-duct interaction...be patient...')
+        print(' ')
+
+        # Compute influence at duct quarter chord (single point)
+        XC_duct = np.array([Xduct_oR - Cduct_oR / 4])  # Make it an array
+        RC_duct = Rduct_oR  # This is a scalar, which is fine
+
+        DAHIFq_times_TANBIC, _, DRHIFq_times_TANBIC = Horseshoe_intr_110830(
+            XC_duct, RC_duct, RC, np.ones_like(RC), RV, 
+            Z, Hub_flag, Rhub_oR, Duct_flag, Rduct_oR
+        )
+
+        # These will be shape (1, Mp), need to squeeze to (Mp,)
+        pt['design']['DAHIFq_times_TANBIC'] = DAHIFq_times_TANBIC.squeeze()
+        pt['design']['DRHIFq_times_TANBIC'] = DRHIFq_times_TANBIC.squeeze()
+
+    # -------------------------- Initialize output data structure "states"
+    LAMBDAall = np.sort(LAMBDAall)  # Sort into ascending order
+
+    NL = len(LAMBDAall)
+    Mp = len(pt['design']['RC'])
+
+    states = {}
+    states['part1'] = '------ Off-design states ------'
+    states['L'] = LAMBDAall.copy()
+    states['Js'] = np.pi / states['L']
+
+    states['RC'] = pt['design']['RC'].copy()
+    states['CoD'] = pt['design']['CoD'].copy()
+
+    states['G'] = np.zeros((NL, Mp))
+    states['UASTAR'] = np.zeros((NL, Mp))
+    states['UTSTAR'] = np.zeros((NL, Mp))
+    states['VSTAR'] = np.zeros((NL, Mp))
+    states['TANBC'] = np.zeros((NL, Mp))
+    states['TANBIC'] = np.zeros((NL, Mp))
+
+    states['ALPHA'] = np.zeros((NL, Mp))
+    states['CL'] = np.zeros((NL, Mp))
+    states['CD'] = np.zeros((NL, Mp))
+
+    states['part2'] = '------ Numerical metrics ------'
+    states['converged'] = np.zeros(NL, dtype=bool)
+    states['iteration'] = np.zeros(NL, dtype=int)
+
+    if Duct_flag == 1:
+        states['part3'] = '------ Duct parameters ------'
+        Nd = len(design['Xduct_oR']) if hasattr(design['Xduct_oR'], '__len__') else 1
+        states['Gd'] = np.zeros(NL)
+        states['UARINGq'] = np.zeros(NL)
+        states['URRINGq'] = np.zeros(NL)
+        states['VSRINGq'] = np.zeros(NL)
+        states['BetaIDq'] = np.zeros(NL)
+        states['CLd'] = np.zeros(NL)
+        states['UARING'] = np.zeros((NL, Nd))
+        states['URRING'] = np.zeros((NL, Nd))
+        states['UADUCT'] = np.zeros((NL, Mp))
+        states['TAU'] = np.zeros(NL)
+        states['CTD'] = np.zeros(NL)
+        states['part4'] = '------ Performance metrics ------'
+    else:
+        states['part3'] = '------ Performance metrics ------'
+
+    states['KT'] = np.zeros(NL)
+    states['KQ'] = np.zeros(NL)
+    states['CT'] = np.zeros(NL)
+    states['CQ'] = np.zeros(NL)
+    states['CP'] = np.zeros(NL)
+
+    if abs(design['VMIV'] - 1) > 1e-8:
+        states['EFFYo'] = np.zeros(NL)
+        states['Ja'] = np.zeros(NL)
+
+    states['EFFY'] = np.zeros(NL)
+    states['VMWV'] = np.zeros(NL)
+
+    # ---------------------- Analyze states from design point outward
+    if 'L' in input_dict:
+        LAMBDA0 = input_dict['L']
+    else:
+        LAMBDA0 = np.pi / input_dict['Js']
+
+    # Find design lambda index
+    idx_design = np.where(LAMBDAall <= LAMBDA0)[0]
+    if len(idx_design) > 0:
+        idx_design = idx_design[-1]
+        LAMBDA_low = LAMBDAall[idx_design::-1]  # Descending from design
+        LAMBDA_high = LAMBDAall[idx_design:]    # Ascending from design
+    else:
+        # All LAMBDA are greater than design
+        LAMBDA_low = np.array([])
+        LAMBDA_high = np.concatenate([[LAMBDAall[0]], LAMBDAall])
+
+    # ------------------- Analyze lower LAMBDA states first, then higher
+    s_low = _Analyze_some(pt, LAMBDA_low, feather)
+    s_high = _Analyze_some(pt, LAMBDA_high, feather)
+
+    # ------------------------------- Output results in increasing LAMBDA order
+    def _combine(s_low_field, s_high_field):
+        """Combine low and high results, reversing low and removing duplicate."""
+        if s_low_field.ndim == 1:
+            return np.concatenate([s_low_field[::-1], s_high_field[1:]])
+        else:
+            return np.vstack([s_low_field[::-1], s_high_field[1:]])
+
+    states['G'] = _combine(s_low['G'], s_high['G'])
+    states['UASTAR'] = _combine(s_low['UASTAR'], s_high['UASTAR'])
+    states['UTSTAR'] = _combine(s_low['UTSTAR'], s_high['UTSTAR'])
+    states['VSTAR'] = _combine(s_low['VSTAR'], s_high['VSTAR'])
+    states['TANBC'] = _combine(s_low['TANBC'], s_high['TANBC'])
+    states['TANBIC'] = _combine(s_low['TANBIC'], s_high['TANBIC'])
+
+    states['ALPHA'] = _combine(s_low['ALPHA'], s_high['ALPHA'])
+    states['CL'] = _combine(s_low['CL'], s_high['CL'])
+    states['CD'] = _combine(s_low['CD'], s_high['CD'])
+
+    if Duct_flag == 1:
+        states['Gd'] = _combine(s_low['Gd'], s_high['Gd'])
+        states['UARINGq'] = _combine(s_low['UARINGq'], s_high['UARINGq'])
+        states['URRINGq'] = _combine(s_low['URRINGq'], s_high['URRINGq'])
+        states['VSRINGq'] = _combine(s_low['VSRINGq'], s_high['VSRINGq'])
+        states['BetaIDq'] = _combine(s_low['BetaIDq'], s_high['BetaIDq'])
+        states['CLd'] = _combine(s_low['CLd'], s_high['CLd'])
+        states['UARING'] = _combine(s_low['UARING'], s_high['UARING'])
+        states['URRING'] = _combine(s_low['URRING'], s_high['URRING'])
+        states['UADUCT'] = _combine(s_low['UADUCT'], s_high['UADUCT'])
+        states['TAU'] = _combine(s_low['TAU'], s_high['TAU'])
+        states['CTD'] = _combine(s_low['CTD'], s_high['CTD'])
+
+    states['converged'] = _combine(s_low['converged'], s_high['converged'])
+    states['iteration'] = _combine(s_low['iteration'], s_high['iteration'])
+
+    states['KT'] = _combine(s_low['KT'], s_high['KT'])
+    states['KQ'] = _combine(s_low['KQ'], s_high['KQ'])
+    states['CT'] = _combine(s_low['CT'], s_high['CT'])
+    states['CQ'] = _combine(s_low['CQ'], s_high['CQ'])
+    states['CP'] = _combine(s_low['CP'], s_high['CP'])
+
+    if abs(design['VMIV'] - 1) > 1e-8:
+        states['EFFYo'] = _combine(s_low['EFFYo'], s_high['EFFYo'])
+        states['Ja'] = _combine(s_low['Ja'], s_high['Ja'])
+
+    states['EFFY'] = _combine(s_low['EFFY'], s_high['EFFY'])
+    states['VMWV'] = _combine(s_low['VMWV'], s_high['VMWV'])
+
+    return states
+
+
+# =========================================================================
+# ============================================== FUNCTION _Analyze_some(...)
+def _Analyze_some(pt, LAMBDA_some, feather):
+    """Analyze a subset of operating states.
+
+    This is an internal helper function that performs Newton iteration
+    for a sequence of tip-speed ratios.
+
+    Parameters
+    ----------
+    pt : dict
+        Propeller/turbine data structure.
+    LAMBDA_some : array_like
+        Subset of tip-speed ratios to analyze.
+    feather : float
+        Feathering angle [radians].
+
+    Returns
+    -------
+    some : dict
+        States at the requested operating points.
+    """
+    if len(LAMBDA_some) == 0:
+        # Return empty structure
+        Mp = len(pt['design']['RC'])
+        some = {
+            'G': np.zeros((0, Mp)),
+            'UASTAR': np.zeros((0, Mp)),
+            'UTSTAR': np.zeros((0, Mp)),
+            'VSTAR': np.zeros((0, Mp)),
+            'TANBC': np.zeros((0, Mp)),
+            'TANBIC': np.zeros((0, Mp)),
+            'ALPHA': np.zeros((0, Mp)),
+            'CL': np.zeros((0, Mp)),
+            'CD': np.zeros((0, Mp)),
+            'converged': np.zeros(0, dtype=bool),
+            'iteration': np.zeros(0, dtype=int),
+            'KT': np.zeros(0),
+            'KQ': np.zeros(0),
+            'CT': np.zeros(0),
+            'CQ': np.zeros(0),
+            'CP': np.zeros(0),
+            'EFFYo': np.zeros(0),
+            'Ja': np.zeros(0),
+            'EFFY': np.zeros(0),
+            'VMWV': np.zeros(0),
+        }
+        # Add duct fields if present
+        if pt['input'].get('Duct_flag', 0) == 1:
+            Nd = len(pt['design'].get('Xduct_oR', [1]))
+            some.update({
+                'Gd': np.zeros(0),
+                'UARINGq': np.zeros(0),
+                'URRINGq': np.zeros(0),
+                'VSRINGq': np.zeros(0),
+                'BetaIDq': np.zeros(0),
+                'CLd': np.zeros(0),
+                'UARING': np.zeros((0, Nd)),
+                'URRING': np.zeros((0, Nd)),
+                'UADUCT': np.zeros((0, Mp)),
+                'TAU': np.zeros(0),
+                'CTD': np.zeros(0),
+            })
+        return some
+
+    Crash_count = 0
+
+    # ------------------------------------------------ Unpack pt data structure
+    design = pt['design']
+    input_dict = pt['input']
+
+    # ------------------------------------------------------------------- Flags
+    Propeller_flag = input_dict['Propeller_flag']
+    Viscous_flag = input_dict['Viscous_flag']
+    Hub_flag = input_dict.get('Hub_flag', 0)
+    Duct_flag = input_dict.get('Duct_flag', 0)
+    Plot_flag = input_dict.get('Plot_flag', 0)
+    Wake_flag = input_dict.get('Wake_flag', 0)
+    Chord_flag = input_dict.get('Chord_flag', 0)
+
+    # '------ Performance inputs ------'
+    Z = input_dict['Z']
+
+    if Propeller_flag == 1:
+        Js = input_dict['Js']
+        L = np.pi / Js
+    else:
+        L = input_dict['L']
+        Js = np.pi / L
+
+    # '------ Computational inputs ------'
+    ITER = input_dict.get('ITER', 50)
+    Rhv = input_dict.get('Rhv', 0.5)
+
+    # '------ Design geometry ------'
+    RC = design['RC']
+    RV = design['RV']
+    DR = design['DR']
+    Rhub_oR = design['Rhub_oR']
+
+    # '------ Design state ------'
+    G = design['G'].copy().flatten()
+    VAC = design['VAC']
+    VTC = design['VTC']
+    UASTAR = design['UASTAR']
+    UTSTAR = design['UTSTAR']
+    VSTAR = design['VSTAR']
+    TANBIC = design['TANBIC']
+    VMIV = design['VMIV']
+
+    # '------ 2D section performance ------'
+    BetaIC = np.arctan(TANBIC)
+    ALPHA = np.zeros_like(RC)
+
+    CL = design['CL']
+    CD = design['CD']
+    CoD = design['CoD']
+    t0oc = design['t0oc']
+
+    Mp = len(RC)
+
+    ALPHAstall = input_dict.get('ALPHAstall', np.deg2rad(8))
+    if np.isscalar(ALPHAstall):
+        ALPHAstall = ALPHAstall * np.ones_like(RC)
+
+    # --------------------------------------------- dCLdALPHA
+    if 'dCLdALPHA' in input_dict:
+        dCLdALPHA = input_dict['dCLdALPHA']
+        if np.isscalar(dCLdALPHA):
+            dCLdALPHA = dCLdALPHA * np.ones_like(RC)
+        elif len(dCLdALPHA) != len(RC) and 'XR' in input_dict:
+            dCLdALPHA = pchip_interpolate(input_dict['XR'], dCLdALPHA, RC)
+    else:
+        # Compute Propeller Aspect Ratio (PAR)
+        XXR = np.linspace(Rhub_oR, 1, 100)
+        if Chord_flag == 0 and 'XR' in input_dict and 'XCoD' in input_dict:
+            PAR = (1 - Rhub_oR)**2 / np.trapz(InterpolateChord(input_dict['XR'], input_dict['XCoD'], XXR), XXR)
+        else:
+            PAR = (1 - Rhub_oR)**2 / np.trapz(InterpolateChord(RC, CoD, XXR), XXR)
+
+        dCLdALPHA = (2 * np.pi / (1 + 2 / PAR)) * np.ones_like(RC)
+
+    # ---------------------------------------------------------------------
+    # '------ Duct parameters ------'
+    if Duct_flag == 1:
+        Rduct_oR = design['Rduct_oR']
+        Cduct_oR = design['Cduct_oR']
+        Xduct_oR = design['Xduct_oR']
+        Gd = design['Gd']
+
+        XdRING = design['XdRING']
+        VARING = design['VARING']
+        UARING = design['UARING']
+        URRING = design['URRING']
+        GdRING = design['GdRING']
+
+        DAHIF_times_TANBIC = design['DAHIFtT']
+        DRHIF_times_TANBIC = design['DRHIFtT']
+
+        UADIF = design['UADIF']
+        UADUCT = design['UADUCT']
+
+        CDd = input_dict.get('CDd', 0.008)
+        dCLdALPHAd = 2 * np.pi
+
+        DAHIFq_times_TANBIC = design['DAHIFq_times_TANBIC']
+        DRHIFq_times_TANBIC = design['DRHIFq_times_TANBIC']
+
+        # These are 1D arrays (Mp,), but we need to treat them as (1, Mp) for matrix operations
+        # Reshape to (1, Mp) for compatibility
+        if DAHIFq_times_TANBIC.ndim == 1:
+            DAHIFq_times_TANBIC = DAHIFq_times_TANBIC.reshape(1, -1)
+            DRHIFq_times_TANBIC = DRHIFq_times_TANBIC.reshape(1, -1)
+
+        DAHIFq = np.zeros((DAHIFq_times_TANBIC.shape[0], Mp))
+        DRHIFq = np.zeros((DRHIFq_times_TANBIC.shape[0], Mp))
+        for m in range(Mp):
+            DAHIFq[:, m] = DAHIFq_times_TANBIC[:, m] / TANBIC[m]
+            DRHIFq[:, m] = DRHIFq_times_TANBIC[:, m] / TANBIC[m]
+
+        UARINGq = (DAHIFq @ G).item() if DAHIFq.shape[0] == 1 else DAHIFq @ G
+        URRINGq = (DRHIFq @ G).item() if DRHIFq.shape[0] == 1 else DRHIFq @ G
+
+        VSRINGq = np.sqrt((VARING + UARINGq)**2 + (URRINGq)**2)
+        CLd = 4 * np.pi * Gd / (VSRINGq * Cduct_oR)
+        BetaIDq = np.arctan(-URRINGq / (VARING + UARINGq))
+
+        CLd0 = CLd
+        BetaIDq0 = BetaIDq
+    else:
+        Rduct_oR = 1
+        UADUCT = np.zeros_like(RC)
+        CTD = 0
+
+    # ---------------------------------------------- Record on-design variables
+    LAMBDA0 = L
+    CL0 = CL.copy()
+    CD0 = CD.copy()
+    BetaIC0 = BetaIC.copy()
+
+    # ------------------------- Initialize vortex Horseshoe Influence Functions
+    UAHIF, UTHIF = Horseshoe110628(Mp, Z, TANBIC, RC, RV, Hub_flag, Rhub_oR, Duct_flag, Rduct_oR)
+
+    # ---------------------------- Initialize output data structure
+    NL = len(LAMBDA_some)
+
+    some = {}
+    some['G'] = np.zeros((NL, Mp))
+    some['UASTAR'] = np.zeros((NL, Mp))
+    some['UTSTAR'] = np.zeros((NL, Mp))
+    some['VSTAR'] = np.zeros((NL, Mp))
+    some['TANBC'] = np.zeros((NL, Mp))
+    some['TANBIC'] = np.zeros((NL, Mp))
+
+    some['ALPHA'] = np.zeros((NL, Mp))
+    some['CL'] = np.zeros((NL, Mp))
+    some['CD'] = np.zeros((NL, Mp))
+
+    if Duct_flag == 1:
+        Nd = len(XdRING)
+        some['Gd'] = np.zeros(NL)
+        some['UARINGq'] = np.zeros(NL)
+        some['URRINGq'] = np.zeros(NL)
+        some['VSRINGq'] = np.zeros(NL)
+        some['BetaIDq'] = np.zeros(NL)
+        some['CLd'] = np.zeros(NL)
+        some['UARING'] = np.zeros((NL, Nd))
+        some['URRING'] = np.zeros((NL, Nd))
+        some['UADUCT'] = np.zeros((NL, Mp))
+        some['TAU'] = np.zeros(NL)
+        some['CTD'] = np.zeros(NL)
+
+    some['converged'] = np.zeros(NL, dtype=bool)
+    some['iteration'] = np.zeros(NL, dtype=int)
+
+    some['CT'] = np.zeros(NL)
+    some['CQ'] = np.zeros(NL)
+    some['CP'] = np.zeros(NL)
+    some['KT'] = np.zeros(NL)
+    some['KQ'] = np.zeros(NL)
+    some['EFFY'] = np.zeros(NL)
+    some['EFFYo'] = np.zeros(NL)
+    some['Ja'] = np.zeros(NL)
+    some['VMWV'] = np.zeros(NL)
+
+    # ------------------------------------------------ Implement RepairSpline
+    Bsmooth = RepairSplineMatrix(RC)
+
+    # -------------- For each LAMBDA, find the system state, and compute forces
+    for i in range(len(LAMBDA_some)):
+        if Crash_count > 3:
+            print(f'Crash limit of 3 reached...skipping state: L = {LAMBDA_some[i]}, Js = {np.pi/LAMBDA_some[i]}')
+            continue
+
+        converged = True
+
+        L_current = LAMBDA_some[i]
+        Js_current = np.pi / LAMBDA_some[i]
+
+        TANBC = VAC / (L_current * RC + VTC)
+
+        # Allow twice as many iterations for the first state analyzed
+        if i == 0:
+            ITER_current = 2 * ITER
+        elif i == 1:
+            ITER_current = ITER
+        else:
+            ITER_current = ITER
+
+        # =====================================================================
+        # ==   FIND STATE OF SYSTEM USING NEWTON SOLVER
+        N_iter = 1
+        ERROR = 1
+        ERRORtol = 0.005
+        relax = 0.9
+
+        # -------------- Initialize linear system of equations matrices
+        R = np.zeros(4 * Mp)
+        J = np.eye(4 * Mp)
+        DX = np.zeros(4 * Mp)
+
+        while N_iter <= ITER_current and np.any(np.abs(ERROR) > ERRORtol):
+            # ---------------------------------- Store last state
+            VSTARlast = VSTAR.copy()
+            alphalast = ALPHA.copy()
+            CLlast = CL.copy()
+            Glast = G.copy()
+
+            # ------------- Solve Newton problem
+            for m in range(Mp):
+                # ------------------------------------------------------ Evaluate residuals
+                R[m] = VSTAR[m] - np.sqrt((VAC[m] + UADUCT[m] + UASTAR[m])**2 + 
+                                         (L_current * RC[m] + VTC[m] + UTSTAR[m])**2)
+
+                R[Mp + m] = ALPHA[m] - (BetaIC0[m] - np.arctan(TANBIC[m]) + feather)
+
+                R[2*Mp + m] = CL[m] - _CLCD_vs_ALPHA_scalar(ALPHA[m], ALPHAstall[m], 
+                                                            CL0[m], CD0[m], dCLdALPHA[m], 
+                                                            Propeller_flag)
+
+                R[3*Mp + m] = G[m] - (1 / (2 * np.pi)) * VSTAR[m] * CL[m] * CoD[m]
+
+                # --------------------------------------- Evaluate residual derivatives
+                for n in range(Mp):
+                    denom = np.sqrt((VAC[m] + UADUCT[m] + UASTAR[m])**2 + 
+                                   (L_current * RC[m] + VTC[m] + UTSTAR[m])**2)
+                    J[m, 3*Mp + n] = (-(VAC[m] + UADUCT[m] + UASTAR[m]) / denom) * UAHIF[m, n] + \
+                                    (-(L_current * RC[m] + VTC[m] + UTSTAR[m]) / denom) * UTHIF[m, n]
+
+                    temp = 1 / (1 + TANBIC[m]**2)
+                    J[Mp + m, 3*Mp + n] = (temp / (L_current * RC[m] + VTC[m] + UTSTAR[m])) * UAHIF[m, n] + \
+                                         (-temp * TANBIC[m] / (L_current * RC[m] + VTC[m] + UTSTAR[m])) * UTHIF[m, n]
+
+                J[2*Mp + m, Mp + m] = -_Find_dCLCDdALPHA(ALPHA[m], ALPHAstall[m], 
+                                                         CL0[m], CD0[m], dCLdALPHA[m], 
+                                                         Propeller_flag)
+
+                J[3*Mp + m, m] = -(1 / (2 * np.pi)) * CL[m] * CoD[m]
+                J[3*Mp + m, 2*Mp + m] = -(1 / (2 * np.pi)) * VSTAR[m] * CoD[m]
+
+            # ------------------------- Update Newton solver
+            DX = np.linalg.solve(J, -R)
+
+            if np.any(np.isnan(DX)) or not np.all(np.isreal(DX)) or np.any(np.abs(DX) > 1e4):
+                DX = np.zeros(4 * Mp)
+                print('<WARNING>')
+                print('<WARNING> DX == NaN or imaginary... crash avoided...')
+                print('<WARNING>')
+                N_iter = 999
+                converged = False
+                Crash_count += 1
+
+            VSTAR = VSTAR + relax * DX[0:Mp]
+            ALPHA = ALPHA + relax * DX[Mp:2*Mp]
+            CL = CL + relax * DX[2*Mp:3*Mp]
+            G = G + relax * DX[3*Mp:4*Mp]
+
+            # ----------------- Update unknowns not in Newton solver
+            UASTAR = UAHIF @ G
+            UTSTAR = UTHIF @ G
+
+            TANBIC = (VAC + UADUCT + UASTAR) / (L_current * RC + VTC + UTSTAR)
+
+            # Smooth the inflow angle
+            TANBICsmooth = Bsmooth @ TANBIC
+
+            UAHIF, UTHIF = Horseshoe110628(Mp, Z, TANBICsmooth, RC, RV, 
+                                          Hub_flag, Rhub_oR, Duct_flag, Rduct_oR)
+
+            # ------------------------------------------ Update duct parameters
+            if Duct_flag == 1:
+                for m in range(Mp):
+                    DAHIFq[:, m] = DAHIFq_times_TANBIC[:, m] / TANBICsmooth[m]
+                    DRHIFq[:, m] = DRHIFq_times_TANBIC[:, m] / TANBICsmooth[m]
+
+                UARINGq = DAHIFq @ G
+                URRINGq = DRHIFq @ G
+
+                VSRINGq = np.sqrt((VARING + UARINGq)**2 + (URRINGq)**2)
+                BetaIDq = np.arctan(-URRINGq / (VARING + UARINGq))
+                CLd = dCLdALPHAd * (BetaIDq0 - BetaIDq) + CLd0
+                Gd = CLd * VSRINGq * Cduct_oR / (4 * np.pi)
+
+                UADUCT = UADIF * Gd
+
+            # ------------------------------------------ Evaluate normalized residuals
+            CLtemp = np.array([_CLCD_vs_ALPHA_scalar(ALPHA[m], ALPHAstall[m], 
+                                                     CL0[m], CD0[m], dCLdALPHA[m], 
+                                                     Propeller_flag) 
+                              for m in range(Mp)])
+
+            ERROR = np.concatenate([
+                (VSTAR - np.sqrt((VAC + UADUCT + UASTAR)**2 + (L_current * RC + VTC + UTSTAR)**2)) / 
+                    np.maximum(np.abs(VSTAR), 1e-4),
+                (ALPHA - (BetaIC0 - np.arctan(TANBIC) + feather)) / 
+                    np.maximum(np.abs(ALPHA), 1e-2),
+                (CL - CLtemp) / np.maximum(np.abs(CL), 1e-4),
+                (G - (1 / (2 * np.pi)) * VSTAR * CL * CoD) / np.maximum(np.abs(G), 1e-6)
+            ])
+
+            N_iter += 1
+
+        if N_iter > ITER_current and converged:
+            print('WARNING: Newton solver did NOT converge.')
+            print(' ')
+            converged = False
+            Crash_count += 1
+
+        N_iter = N_iter - 1
+
+        # ------------------------------------------------------ Compute forces
+        if Duct_flag == 1:
+            DAHIF = np.zeros_like(DAHIF_times_TANBIC)
+            DRHIF = np.zeros_like(DRHIF_times_TANBIC)
+            for m in range(Mp):
+                DAHIF[:, m] = DAHIF_times_TANBIC[:, m] / TANBICsmooth[m]
+                DRHIF[:, m] = DRHIF_times_TANBIC[:, m] / TANBICsmooth[m]
+
+            UARING = DAHIF @ G
+            URRING = DRHIF @ G
+
+            # CTD calculation would require Duct_Thrust function
+            # For now, use the design value
+            CTD = design.get('CTD', 0)
+
+            # Compute duct thrust coefficient using Duct_Thrust function
+            CTD, Gd_updated = Duct_Thrust(XdRING, Rduct_oR, VARING, UARING, URRING, 
+                                          GdRING, Gd, CDd, design.get('CTDdes', design.get('CTD', 0)))
+            # Update Gd with the computed value for consistency  
+            Gd = Gd_updated
+        CL_final = np.array([_CLCD_vs_ALPHA_scalar(ALPHA[m], ALPHAstall[m], 
+                                                   CL0[m], CD0[m], dCLdALPHA[m], 
+                                                   Propeller_flag) 
+                            for m in range(Mp)])
+        CD_final = np.array([_CLCD_vs_ALPHA_scalar(ALPHA[m], ALPHAstall[m], 
+                                                   CL0[m], CD0[m], dCLdALPHA[m], 
+                                                   Propeller_flag, return_CD=True) 
+                            for m in range(Mp)])
+
+        if Viscous_flag == 0:
+            CD_final = np.zeros_like(CD_final)
+
+        CT, CQ, CP, KT, KQ, CTH, TAU, Ja, Jw, VMWV, EFFYo, EFFY, ADEFFY, QF, QFo, QFw = Forces(
+            RC, DR, VAC, VTC, UASTAR, UTSTAR, UADUCT, CD_final, CoD, G, Z, 
+            Js_current, VMIV, Hub_flag, Rhub_oR, Rhv, CTD
+        )
+
+        # Check for crashes
+        if (Propeller_flag == 1) and (KT < 0 or KQ < 0):
+            Crash_count += 1
+        elif (Propeller_flag == 0) and (CP > 0):
+            Crash_count += 1
+
+        # ------------------------- Record output data
+        some['converged'][i] = converged
+        some['iteration'][i] = N_iter
+
+        some['G'][i, :] = G
+        some['UASTAR'][i, :] = UASTAR
+        some['UTSTAR'][i, :] = UTSTAR
+        some['VSTAR'][i, :] = VSTAR
+        some['TANBC'][i, :] = TANBC
+        some['TANBIC'][i, :] = TANBIC
+
+        some['ALPHA'][i, :] = ALPHA
+        some['CL'][i, :] = CL_final
+        some['CD'][i, :] = CD_final
+
+        if Duct_flag == 1:
+            some['Gd'][i] = np.asarray(Gd).item() if np.asarray(Gd).size == 1 else Gd
+            some['UARINGq'][i] = np.asarray(UARINGq).item() if np.asarray(UARINGq).size == 1 else UARINGq
+            some['URRINGq'][i] = np.asarray(URRINGq).item() if np.asarray(URRINGq).size == 1 else URRINGq
+            some['VSRINGq'][i] = np.asarray(VSRINGq).item() if np.asarray(VSRINGq).size == 1 else VSRINGq
+            some['BetaIDq'][i] = np.asarray(BetaIDq).item() if np.asarray(BetaIDq).size == 1 else BetaIDq
+            some['CLd'][i] = np.asarray(CLd).item() if np.asarray(CLd).size == 1 else CLd
+            some['UARING'][i, :] = UARING
+            some['URRING'][i, :] = URRING
+            some['UADUCT'][i, :] = UADUCT
+            some['TAU'][i] = np.asarray(TAU).item() if np.asarray(TAU).size == 1 else TAU
+            some['CTD'][i] = np.asarray(CTD).item() if np.asarray(CTD).size == 1 else CTD
+
+        some['KT'][i] = KT
+        some['KQ'][i] = KQ
+        some['CT'][i] = CT
+        some['CQ'][i] = CQ
+        some['CP'][i] = CP
+        some['EFFY'][i] = EFFY
+        some['EFFYo'][i] = EFFYo
+        some['Ja'][i] = Ja
+        some['VMWV'][i] = VMWV
+
+        # -------------------------------------------------------------------------
+        print(' ')
+        print(f'Forces for state: L = {L_current}, Js = {Js_current}')
+        print(' ')
+        if Propeller_flag == 1:
+            print(f'    Js = {Js_current}')
+            print(f'    KT = {KT}')
+            print(f'    KQ = {KQ}')
+            print(f'    CT = {CT}')
+            if abs(VMIV - 1) > 1e-8:
+                print(f'    Ja = {Ja}')
+            print(f'  EFFY = {EFFY}')
+        else:
+            print(f'CT = {CT}')
+            print(f'CP = {CP}')
+        print(' ')
+
+        if N_iter < 10:
+            print(f'The max error for iteration  {N_iter} is: {np.max(np.abs(ERROR))}')
+        else:
+            print(f'The max error for iteration {N_iter} is: {np.max(np.abs(ERROR))}')
+        print(' ')
+        print('------------------------------------------------')
+        print(' ')
+
+    return some
+
+
+def _CLCD_vs_ALPHA_scalar(alpha, ALPHAstall, CL0, CD0, dCLdALPHA, Propeller_flag, return_CD=False):
+    """Compute CL or CD at angle of attack (scalar version).
+
+    Simple linear lift curve with stall limits.
+    """
+    if abs(alpha) < ALPHAstall:
+        CL = CL0 + dCLdALPHA * alpha
+        CD = CD0
+    else:
+        # Post-stall
+        CL = CL0 + dCLdALPHA * np.sign(alpha) * ALPHAstall
+        CD = CD0 * 2  # Simple stall model
+
+    if return_CD:
+        return CD
+    else:
+        return CL
+
+
+def _Find_dCLCDdALPHA(alpha, ALPHAstall, CL0, CD0, dCLdALPHA, Propeller_flag):
+    """Find derivative of CL with respect to alpha."""
+    if abs(alpha) < ALPHAstall:
+        return dCLdALPHA
+    else:
+        return 0.0  # Flat in stall region
