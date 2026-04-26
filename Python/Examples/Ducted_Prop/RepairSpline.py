@@ -1,0 +1,189 @@
+# Port target: SourceCode/RepairSpline.m
+"""Repair discontinuous functions by fitting low-order B-splines.
+
+This function repairs a discontinuous function by fitting a low-order
+spline to the data using cubic B-splines.
+
+Ported from OpenProp v3.3.4 SourceCode/RepairSpline.m
+"""
+
+import numpy as np
+from scipy.interpolate import BSpline
+
+
+def RepairSpline(RC, X, name=None, H=0):
+    """Repair a discontinuous function using B-spline smoothing.
+
+    This function fits a low-order cubic B-spline to input data to smooth
+    discontinuities and numerical noise.
+
+    Parameters
+    ----------
+    RC : array_like, shape (Mp,)
+        Control point radii / R (independent variable).
+    X : array_like, shape (Mp,) or (1, Mp) or (Mp, 1)
+        Function values to be repaired (e.g., G, UASTAR, UTSTAR, BETAIC).
+    name : str, optional
+        Variable name string for display purposes. Default is '[unknown]'.
+    H : int or handle, optional
+        Variable plot handle. H == 0 for no plot (default). Not implemented
+        in Python version.
+
+    Returns
+    -------
+    XX : ndarray
+        Repaired variable with same shape as input X.
+
+    Notes
+    -----
+    The function uses cubic B-splines (k=4) with n=3 spline segments.
+    Data is mapped from RC space to parameter TC in interval [0, 1].
+    """
+    # Handle optional arguments
+    if name is None:
+        name = '[unknown]'
+
+    # Convert to numpy arrays and get original shape
+    RC = np.asarray(RC, dtype=float).ravel()
+    X = np.asarray(X, dtype=float)
+    original_shape = X.shape
+    X = X.ravel()
+
+    Mp = len(RC)
+
+    # ----------------------------------------------------------- Spline inputs
+    n = 3   # number of splines Ms == n + 1
+    k = 4   # polynomial order, k == 4 for cubic B-splines
+
+    # ------------------------------- Map RC to TC in interval [0, 1]
+    TC = (RC - RC[0]) / (RC[-1] - RC[0])
+
+    # ----------------------------------- Evaluate B-spline basis functions
+    B = Bspline_basis(TC, n, k)  # [Mp, Ms], B(TC, spline)
+
+    # ----------------------- Solve for spline amplitudes
+    # X(TC) = B(TC, spline) * A(spline)
+    A = np.linalg.pinv(B) @ X
+
+    # ----------------------------------------- Interpolate and smooth data
+    XX = B @ A
+
+    # -------------------------------------------------------- Reshape if necessary
+    # Try to match original shape
+    if len(original_shape) == 2:
+        if original_shape[0] == 1:
+            XX = XX.reshape(1, -1)
+        elif original_shape[1] == 1:
+            XX = XX.reshape(-1, 1)
+        else:
+            # Check which dimension matches Mp
+            if original_shape[0] == Mp:
+                XX = XX.reshape(-1, 1)
+            else:
+                XX = XX.reshape(1, -1)
+
+    return XX
+
+
+def RepairSplineMatrix(RC):
+    """Return smoothing matrix for B-spline data smoothing.
+
+    Creates a smoothing matrix ``Bsmooth`` such that ``X_smooth = X @ Bsmooth``
+    smooths data ``X`` defined at control points ``RC``.
+
+    Parameters
+    ----------
+    RC : array_like, shape (Mp,)
+        Control-point radii.
+
+    Returns
+    -------
+    Bsmooth : ndarray, shape (Mp, Mp)
+        Smoothing matrix. Apply as: X_smooth = X @ Bsmooth
+
+    Notes
+    -----
+    Implements: Bsmooth = (SplineBasis @ pinv(SplineBasis)).T
+    where SplineBasis is the cubic B-spline basis matrix.
+    """
+    RC = np.asarray(RC, dtype=float).ravel()
+    Mp = len(RC)
+
+    # Map RC into TC in interval [0, 1]
+    TC = (RC - RC[0]) / (RC[-1] - RC[0])
+
+    # Spline parameters
+    n = 3   # number of splines == n + 1
+    k = 4   # polynomial order, k == 4 for cubic B-splines
+
+    # Compute B-spline basis functions
+    SplineBasis = Bspline_basis(TC, n, k)  # [Mp, n+1]
+
+    # Create smoothing matrix
+    Bsmooth = (SplineBasis @ np.linalg.pinv(SplineBasis)).T
+
+    return Bsmooth
+
+
+def Bspline_basis(t, n, k):
+    """Compute B-spline basis functions using scipy.
+
+    Evaluates B-spline basis functions of order k with n+1 splines
+    at parameter values t.
+
+    Parameters
+    ----------
+    t : array_like, shape (M,)
+        Parameter values in [0, 1] at which to evaluate basis functions.
+    n : int
+        Number of spline segments (number of splines = n + 1).
+    k : int
+        Polynomial order (k=4 for cubic B-splines).
+
+    Returns
+    -------
+    B : ndarray, shape (M, n+1)
+        B-spline basis functions evaluated at each t.
+        B[i, j] = value of j-th basis function at t[i].
+
+    Notes
+    -----
+    Uses uniform knot spacing with clamped B-spline (open uniform knot vector).
+    For a B-spline of degree k-1 with n+1 basis functions, we need
+    n+k+1 knots total.
+    """
+    t = np.asarray(t, dtype=float).ravel()
+    M = len(t)
+    Ms = n + 1  # number of basis functions
+
+    # Create clamped uniform knot vector
+    # For clamped B-splines: repeat first and last knots k times
+    # Total knots needed: Ms + k
+    knots = np.zeros(Ms + k)
+    knots[:k] = 0.0  # Clamp at start
+    knots[-k:] = 1.0  # Clamp at end
+
+    # Interior knots uniformly spaced
+    n_interior = Ms + k - 2 * k
+    if n_interior > 0:
+        knots[k:-k] = np.linspace(0, 1, n_interior + 2)[1:-1]
+
+    # Initialize basis matrix
+    B = np.zeros((M, Ms))
+
+    # Evaluate each basis function
+    for i in range(Ms):
+        # Create a spline with a single basis function active
+        coeffs = np.zeros(Ms)
+        coeffs[i] = 1.0
+
+        # Create BSpline object
+        spl = BSpline(knots, coeffs, k - 1, extrapolate=False)
+
+        # Evaluate at parameter values
+        B[:, i] = spl(t)
+
+        # Handle NaN values (extrapolation)
+        B[np.isnan(B[:, i]), i] = 0.0
+
+    return B

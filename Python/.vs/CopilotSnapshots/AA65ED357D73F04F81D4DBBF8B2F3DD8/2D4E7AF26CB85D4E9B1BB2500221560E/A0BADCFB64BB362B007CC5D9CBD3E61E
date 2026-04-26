@@ -1,0 +1,310 @@
+﻿"""
+Test Horseshoe_intr_110830.py implementation
+"""
+
+import numpy as np
+from Horseshoe_intr_110830 import Horseshoe_intr_110830, HoughUA, HoughUR, Heuman
+from Horseshoe_intr_110830 import Legendre_2nd_kind_half_order, Legendre_2nd_kind_minus_half_order
+
+print("=" * 70)
+print("Horseshoe_intr_110830.py Test Suite")
+print("=" * 70)
+
+# ============================================================================
+# TEST 1: Helper functions
+# ============================================================================
+print("\nTEST 1: Helper Functions")
+print("-" * 70)
+
+# Test Legendre functions
+try:
+    z = 1.5
+    Q_half = Legendre_2nd_kind_half_order(z)
+    Q_Mhalf = Legendre_2nd_kind_minus_half_order(z)
+    
+    print(f"Legendre Q_{{1/2}}({z}) = {Q_half:.6f}")
+    print(f"Legendre Q_{{-1/2}}({z}) = {Q_Mhalf:.6f}")
+    
+    assert np.isfinite(Q_half), "Q_half is not finite"
+    assert np.isfinite(Q_Mhalf), "Q_Mhalf is not finite"
+    print("  OK - Legendre functions working")
+    
+except Exception as e:
+    print(f"  FAIL - {e}")
+
+# Test Heuman function
+try:
+    phi = 0.5
+    k = 0.7
+    H = Heuman(phi, k)
+    
+    print(f"\nHeuman Lambda({phi:.2f}, {k:.2f}) = {H:.6f}")
+    assert np.isfinite(H), "Heuman function returned non-finite value"
+    print("  OK - Heuman function working")
+    
+except Exception as e:
+    print(f"  FAIL - {e}")
+
+# Test HoughUA
+try:
+    xc = 0.1
+    rc = 0.7
+    tanbiv = 0.5
+    rv = 0.6
+    Z = 4
+    
+    UA = HoughUA(xc, rc, tanbiv, rv, Z)
+    print(f"\nHoughUA({xc}, {rc}, {tanbiv}, {rv}, {Z}) = {UA:.6f}")
+    assert np.isfinite(UA), "HoughUA returned non-finite value"
+    print("  OK - HoughUA working")
+    
+except Exception as e:
+    print(f"  FAIL - {e}")
+
+# Test HoughUR
+try:
+    UR = HoughUR(xc, rc, tanbiv, rv, Z)
+    print(f"HoughUR({xc}, {rc}, {tanbiv}, {rv}, {Z}) = {UR:.6f}")
+    assert np.isfinite(UR), "HoughUR returned non-finite value"
+    print("  OK - HoughUR working")
+    
+except Exception as e:
+    print(f"  FAIL - {e}")
+
+# ============================================================================
+# TEST 2: Rotor-duct interaction
+# ============================================================================
+print("\n" + "=" * 70)
+print("TEST 2: Rotor-Duct Interaction")
+print("-" * 70)
+
+try:
+    # Propeller parameters
+    M1 = 10
+    RC1 = np.linspace(0.2, 1.0, M1)
+    RV1 = np.linspace(0.15, 1.0, M1 + 1)
+    TANBIC1 = 0.5 * np.ones(M1)
+    Z1 = 4
+    
+    # Duct parameters
+    XC2 = np.array([0.0, 0.1, 0.2, 0.3, 0.4])  # array of axial positions
+    RC2 = 1.08  # scalar radius
+    
+    Hub_flag = 0
+    Rhub_oR1 = 0.15
+    Duct_flag = 0
+    Rduct_oR1 = 1.08
+    
+    print(f"Propeller: M1={M1}, Z1={Z1}")
+    print(f"Duct: {len(XC2)} axial positions, RC2={RC2}")
+    
+    UAHIF21, UTHIF21, URHIF21 = Horseshoe_intr_110830(
+        XC2, RC2, RC1, TANBIC1, RV1, Z1,
+        Hub_flag, Rhub_oR1, Duct_flag, Rduct_oR1
+    )
+    
+    print(f"\nOutput shapes:")
+    print(f"  UAHIF21: {UAHIF21.shape}")
+    print(f"  UTHIF21: {UTHIF21.shape}")
+    print(f"  URHIF21: {URHIF21.shape}")
+    
+    print(f"\nUAHIF21 range: [{np.min(UAHIF21):.6f}, {np.max(UAHIF21):.6f}]")
+    print(f"UTHIF21 range: [{np.min(UTHIF21):.6f}, {np.max(UTHIF21):.6f}]")
+    print(f"URHIF21 range: [{np.min(URHIF21):.6f}, {np.max(URHIF21):.6f}]")
+    
+    # Check shapes
+    assert UAHIF21.shape == (len(XC2), M1), "UAHIF21 shape mismatch"
+    assert UTHIF21.shape == (len(XC2), M1), "UTHIF21 shape mismatch"
+    assert URHIF21.shape == (len(XC2), M1), "URHIF21 shape mismatch"
+    
+    # Check all finite
+    assert np.all(np.isfinite(UAHIF21)), "UAHIF21 contains non-finite values"
+    assert np.all(np.isfinite(UTHIF21)), "UTHIF21 contains non-finite values"
+    assert np.all(np.isfinite(URHIF21)), "URHIF21 contains non-finite values"
+    
+    # For rotor-duct, UTHIF21 should be zero
+    assert np.all(UTHIF21 == 0), "UTHIF21 should be zero for rotor-duct"
+    
+    print("\n  OK - Rotor-duct interaction PASS")
+    
+except Exception as e:
+    print(f"\n  FAIL - {e}")
+    import traceback
+    traceback.print_exc()
+
+# ============================================================================
+# TEST 3: Rotor-rotor interaction
+# ============================================================================
+print("\n" + "=" * 70)
+print("TEST 3: Rotor-Rotor Interaction")
+print("-" * 70)
+
+try:
+    # First rotor parameters
+    M1 = 10
+    RC1 = np.linspace(0.3, 1.0, M1)
+    RV1 = np.linspace(0.25, 1.0, M1 + 1)
+    TANBIC1 = 0.5 * np.ones(M1)
+    Z1 = 4
+    
+    # Second rotor parameters
+    XC2 = 0.5  # scalar axial position
+    RC2 = np.linspace(0.35, 0.95, 8)  # array of radii
+    
+    Hub_flag = 1
+    Rhub_oR1 = 0.2
+    Duct_flag = 0
+    Rduct_oR1 = 1.1
+    
+    print(f"Rotor 1: M1={M1}, Z1={Z1}")
+    print(f"Rotor 2: XC2={XC2}, {len(RC2)} radial positions")
+    print(f"Hub flag: {Hub_flag}, Rhub={Rhub_oR1}")
+    
+    UAHIF21, UTHIF21, URHIF21 = Horseshoe_intr_110830(
+        XC2, RC2, RC1, TANBIC1, RV1, Z1,
+        Hub_flag, Rhub_oR1, Duct_flag, Rduct_oR1
+    )
+    
+    print(f"\nOutput shapes:")
+    print(f"  UAHIF21: {UAHIF21.shape}")
+    print(f"  UTHIF21: {UTHIF21.shape}")
+    print(f"  URHIF21: {URHIF21.shape}")
+    
+    print(f"\nUAHIF21 range: [{np.min(UAHIF21):.6f}, {np.max(UAHIF21):.6f}]")
+    print(f"UTHIF21 range: [{np.min(UTHIF21):.6f}, {np.max(UTHIF21):.6f}]")
+    print(f"URHIF21 range: [{np.min(URHIF21):.6f}, {np.max(URHIF21):.6f}]")
+    
+    # Check shapes
+    assert UAHIF21.shape == (len(RC2), M1), "UAHIF21 shape mismatch"
+    assert UTHIF21.shape == (len(RC2), M1), "UTHIF21 shape mismatch"
+    assert URHIF21.shape == (len(RC2), M1), "URHIF21 shape mismatch"
+    
+    # Check all finite
+    assert np.all(np.isfinite(UAHIF21)), "UAHIF21 contains non-finite values"
+    assert np.all(np.isfinite(UTHIF21)), "UTHIF21 contains non-finite values"
+    # URHIF21 not computed for rotor-rotor with Compute_flag [1,1,0]
+    
+    # For rotor-rotor with XC2 > 0, UTHIF21 should be non-zero
+    assert np.any(UTHIF21 != 0), "UTHIF21 should be non-zero for rotor-rotor"
+    
+    print("\n  OK - Rotor-rotor interaction PASS")
+    
+except Exception as e:
+    print(f"\n  FAIL - {e}")
+    import traceback
+    traceback.print_exc()
+
+# ============================================================================
+# TEST 4: Effect of hub flag (rotor-rotor case)
+# ============================================================================
+print("\n" + "=" * 70)
+print("TEST 4: Hub Flag Effect (Rotor-Rotor)")
+print("-" * 70)
+
+try:
+    M1 = 10
+    RC1 = np.linspace(0.3, 1.0, M1)
+    RV1 = np.linspace(0.25, 1.0, M1 + 1)
+    TANBIC1 = 0.5 * np.ones(M1)
+    Z1 = 4
+
+    # ROTOR-ROTOR case: scalar XC2, array RC2
+    XC2 = 0.5
+    RC2 = np.linspace(0.35, 0.95, 8)
+
+    Rhub_oR1 = 0.2
+    Rduct_oR1 = 1.1
+
+    # Without hub
+    UAHIF_no_hub, _, _ = Horseshoe_intr_110830(
+        XC2, RC2, RC1, TANBIC1, RV1, Z1, 0, Rhub_oR1, 0, Rduct_oR1
+    )
+
+    # With hub
+    UAHIF_with_hub, _, _ = Horseshoe_intr_110830(
+        XC2, RC2, RC1, TANBIC1, RV1, Z1, 1, Rhub_oR1, 0, Rduct_oR1
+    )
+
+    diff = np.max(np.abs(UAHIF_with_hub - UAHIF_no_hub))
+    print(f"Max difference with/without hub: {diff:.6f}")
+
+    # Hub should affect results in rotor-rotor case
+    assert diff > 1e-10, "Hub flag should affect results in rotor-rotor case"
+
+    print("  OK - Hub flag affects rotor-rotor results as expected")
+    print("\nNote: For rotor-duct cases, hub/duct images are NOT used (per MATLAB spec)")
+
+except Exception as e:
+    print(f"  FAIL - {e}")
+
+# ============================================================================
+# TEST 5: Integration test
+# ============================================================================
+print("\n" + "=" * 70)
+print("TEST 5: Integration Test")
+print("-" * 70)
+
+try:
+    # Test realistic ducted propeller parameters
+    M1 = 20
+    RC1 = np.linspace(0.2, 1.0, M1)
+    RV1 = np.linspace(0.15, 1.0, M1 + 1)
+    TANBIC1 = np.linspace(0.6, 0.2, M1)
+    Z1 = 4
+    
+    # Duct with multiple control points
+    XC2 = np.linspace(-0.5, 0.5, 11)
+    RC2 = 1.08
+    
+    Hub_flag = 1
+    Rhub_oR1 = 0.15
+    Duct_flag = 0
+    Rduct_oR1 = 1.08
+    
+    print(f"Realistic ducted propeller:")
+    print(f"  Propeller: M1={M1}, Z1={Z1}")
+    print(f"  Duct: {len(XC2)} control points")
+    print(f"  XC2 range: [{XC2[0]:.2f}, {XC2[-1]:.2f}]")
+    
+    UAHIF21, UTHIF21, URHIF21 = Horseshoe_intr_110830(
+        XC2, RC2, RC1, TANBIC1, RV1, Z1,
+        Hub_flag, Rhub_oR1, Duct_flag, Rduct_oR1
+    )
+    
+    print(f"\n  UAHIF21 shape: {UAHIF21.shape}")
+    print(f"  Non-zero UAHIF21: {np.count_nonzero(UAHIF21)}")
+    print(f"  Non-zero URHIF21: {np.count_nonzero(URHIF21)}")
+    
+    assert UAHIF21.shape == (len(XC2), M1), "Shape mismatch"
+    assert np.all(np.isfinite(UAHIF21)), "Non-finite values"
+    
+    print("\n  OK - Integration test PASS")
+    
+except Exception as e:
+    print(f"\n  FAIL - {e}")
+    import traceback
+    traceback.print_exc()
+
+# ============================================================================
+# Summary
+# ============================================================================
+print("\n" + "=" * 70)
+print("ALL TESTS COMPLETED")
+print("=" * 70)
+print()
+print("Horseshoe_intr_110830.py Implementation Summary:")
+print("  - Computes interaction horseshoe influence functions")
+print("  - Supports rotor-rotor and rotor-duct interactions")
+print("  - Returns UAHIF21, UTHIF21, URHIF21 matrices")
+print("  - Includes hub and duct image effects")
+print("  - Uses Hough-Ordway induction formulas")
+print()
+print("Helper Functions:")
+print("  - HoughUA: Axial induced velocity")
+print("  - HoughUR: Radial induced velocity")
+print("  - Heuman: Heuman's Lambda function")
+print("  - Legendre_2nd_kind_half_order: Q_{1/2}(z)")
+print("  - Legendre_2nd_kind_minus_half_order: Q_{-1/2}(z)")
+print()
+print("Compatible with MATLAB OpenProp v3.3.4")
+print("=" * 70)

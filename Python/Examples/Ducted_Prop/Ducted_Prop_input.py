@@ -25,24 +25,27 @@ def build_input():
     Z      = 4          # number of blades
     N      = 9000       # propeller speed [RPM]
     D      = 0.100      # propeller diameter [m]
+        
     THRUST = 900        # required thrust [N]
     Vs     = 4.5        # ship velocity [m/s]
     Dhub   = 0.015      # hub diameter [m]
+
     Mp     = 20         # number of vortex panels over the radius
     Np     = 20         # number of points along the chord
+
     rho    = 1025       # sea water density [kg/m^3]
 
     # --------------------------------------------------------- Duct parameters
     TAU    = 0.9                # thrust ratio == prop thrust / total thrust
     Rduct  = D / 2 + 0.002     # duct radius [m]
-    Cduct  = D / 2 + 0.025     # duct chord length [m]
+    Cduct  = D                   # duct chord length [m]
     CDd    = 0.008              # duct viscous drag coefficient
 
     # --------------------------------------------- Blade 2-D section properties
     Meanline  = "NACA a=0.8"   # meanline type
     Thickness = 2               # thickness form (2 == elliptical)
 
-    XR    = np.array([0.2,    0.3,    0.4,    0.5,    0.6,    0.7,    0.8,    0.9,    0.95,  1.0])
+    XR    = np.array([0.15,    0.3,    0.4,    0.5,    0.6,    0.7,    0.8,    0.9,    0.95,  1.0])
     XCoD  = np.array([0.1600, 0.1818, 0.2024, 0.2196, 0.2305, 0.2311, 0.2173, 0.1806, 0.1387, 0.0010])
     XCD   = np.array([0.0080, 0.0080, 0.0080, 0.0080, 0.0080, 0.0080, 0.0080, 0.0080, 0.0080, 0.0080])
     XVA   = np.ones(10)

@@ -1,0 +1,340 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\Ducted_Prop_usage_script.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:Examples\\Ducted_Prop\\Ducted_Prop_usage_script.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\export_blade.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:Examples\\Ducted_Prop\\export_blade.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\InterpolateChord.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:Examples\\Ducted_Prop\\InterpolateChord.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\Ducted_Prop_input.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:Examples\\Ducted_Prop\\Ducted_Prop_input.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\EppsOptimizer.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:Examples\\Ducted_Prop\\EppsOptimizer.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\elliptic12.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:Examples\\Ducted_Prop\\elliptic12.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\iboha\\source\\repos\\PythonProp\\SourceCode\\elliptic12.m||{3B902123-F8A7-4915-9F01-361F908088D0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\Duct_Influence.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:Examples\\Ducted_Prop\\Duct_Influence.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\CLCD_vs_ALPHA.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:Examples\\Ducted_Prop\\CLCD_vs_ALPHA.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\Analyze.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:Examples\\Ducted_Prop\\Analyze.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\iboha\\source\\repos\\PythonProp\\SourceCode\\Duct_Thrust.m||{3B902123-F8A7-4915-9F01-361F908088D0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\Duct_Thrust.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:Examples\\Ducted_Prop\\Duct_Thrust.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\Forces.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:Examples\\Ducted_Prop\\Forces.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\iboha\\source\\repos\\PythonProp\\SourceCode\\Forces.m||{3B902123-F8A7-4915-9F01-361F908088D0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\Geometry.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:Examples\\Ducted_Prop\\Geometry.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\iboha\\source\\repos\\PythonProp\\SourceCode\\EppsOptimizer.m||{3B902123-F8A7-4915-9F01-361F908088D0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\iboha\\source\\repos\\PythonProp\\SourceCode\\Geometry.m||{3B902123-F8A7-4915-9F01-361F908088D0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\iboha\\source\\repos\\PythonProp\\SourceCode\\Analyze.m||{3B902123-F8A7-4915-9F01-361F908088D0}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 7,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:128:0:{75188d03-9892-4ae2-abf1-207126247ce5}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:129:0:{75188d03-9892-4ae2-abf1-207126247ce5}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:131:0:{75c83ab3-5264-45e8-ad32-5c8a41ad477d}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:130:0:{75188d03-9892-4ae2-abf1-207126247ce5}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{1c4feeaa-4718-4aa9-859d-94ce25d182ba}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "export_blade.py",
+              "DocumentMoniker": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\export_blade.py",
+              "RelativeDocumentMoniker": "Examples\\Ducted_Prop\\export_blade.py",
+              "ToolTip": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\export_blade.py",
+              "RelativeToolTip": "Examples\\Ducted_Prop\\export_blade.py",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAJUBAAA6AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-26T02:29:00.52Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 17,
+              "Title": "Analyze.m",
+              "DocumentMoniker": "C:\\Users\\iboha\\source\\repos\\PythonProp\\SourceCode\\Analyze.m",
+              "RelativeDocumentMoniker": "..\\SourceCode\\Analyze.m",
+              "ToolTip": "C:\\Users\\iboha\\source\\repos\\PythonProp\\SourceCode\\Analyze.m",
+              "RelativeToolTip": "..\\SourceCode\\Analyze.m",
+              "ViewState": "AgIAAD0EAAAAAAAAAAAQwE8EAAAkAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-25T05:09:06.965Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Ducted_Prop_usage_script.py",
+              "DocumentMoniker": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\Ducted_Prop_usage_script.py",
+              "RelativeDocumentMoniker": "Examples\\Ducted_Prop\\Ducted_Prop_usage_script.py",
+              "ToolTip": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\Ducted_Prop_usage_script.py",
+              "RelativeToolTip": "Examples\\Ducted_Prop\\Ducted_Prop_usage_script.py",
+              "ViewState": "AgIAAEIAAAAAAAAAAAAAAAcAAAAaAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-18T00:09:43.362Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "elliptic12.py",
+              "DocumentMoniker": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\elliptic12.py",
+              "RelativeDocumentMoniker": "Examples\\Ducted_Prop\\elliptic12.py",
+              "ToolTip": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\elliptic12.py",
+              "RelativeToolTip": "Examples\\Ducted_Prop\\elliptic12.py",
+              "ViewState": "AgIAABYAAAAAAAAAAAAowAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-26T00:39:24.973Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "elliptic12.m",
+              "DocumentMoniker": "C:\\Users\\iboha\\source\\repos\\PythonProp\\SourceCode\\elliptic12.m",
+              "RelativeDocumentMoniker": "..\\SourceCode\\elliptic12.m",
+              "ToolTip": "C:\\Users\\iboha\\source\\repos\\PythonProp\\SourceCode\\elliptic12.m",
+              "RelativeToolTip": "..\\SourceCode\\elliptic12.m",
+              "ViewState": "AgIAAHUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-26T00:48:47.41Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "Duct_Influence.py",
+              "DocumentMoniker": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\Duct_Influence.py",
+              "RelativeDocumentMoniker": "Examples\\Ducted_Prop\\Duct_Influence.py",
+              "ToolTip": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\Duct_Influence.py",
+              "RelativeToolTip": "Examples\\Ducted_Prop\\Duct_Influence.py",
+              "ViewState": "AgIAAJkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-26T00:39:08.342Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "Ducted_Prop_input.py",
+              "DocumentMoniker": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\Ducted_Prop_input.py",
+              "RelativeDocumentMoniker": "Examples\\Ducted_Prop\\Ducted_Prop_input.py",
+              "ToolTip": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\Ducted_Prop_input.py",
+              "RelativeToolTip": "Examples\\Ducted_Prop\\Ducted_Prop_input.py",
+              "ViewState": "AgIAACQAAAAAAAAAAAAAADUAAAAYAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-18T00:09:02.584Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 11,
+              "Title": "Duct_Thrust.py",
+              "DocumentMoniker": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\Duct_Thrust.py",
+              "RelativeDocumentMoniker": "Examples\\Ducted_Prop\\Duct_Thrust.py",
+              "ToolTip": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\Duct_Thrust.py",
+              "RelativeToolTip": "Examples\\Ducted_Prop\\Duct_Thrust.py",
+              "ViewState": "AgIAAE4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-25T07:02:06.281Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "InterpolateChord.py",
+              "DocumentMoniker": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\InterpolateChord.py",
+              "RelativeDocumentMoniker": "Examples\\Ducted_Prop\\InterpolateChord.py",
+              "ToolTip": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\InterpolateChord.py",
+              "RelativeToolTip": "Examples\\Ducted_Prop\\InterpolateChord.py",
+              "ViewState": "AgIAAPMAAAAAAAAAAAAAAGEAAAAPAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-26T01:15:28.689Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "EppsOptimizer.py",
+              "DocumentMoniker": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\EppsOptimizer.py",
+              "RelativeDocumentMoniker": "Examples\\Ducted_Prop\\EppsOptimizer.py",
+              "ToolTip": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\EppsOptimizer.py",
+              "RelativeToolTip": "Examples\\Ducted_Prop\\EppsOptimizer.py",
+              "ViewState": "AgIAACwCAAAAAAAAAAAQwDQCAAA9AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-18T00:54:58.883Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 9,
+              "Title": "Analyze.py",
+              "DocumentMoniker": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\Analyze.py",
+              "RelativeDocumentMoniker": "Examples\\Ducted_Prop\\Analyze.py",
+              "ToolTip": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\Analyze.py",
+              "RelativeToolTip": "Examples\\Ducted_Prop\\Analyze.py",
+              "ViewState": "AgIAAJ8CAAAAAAAAAAAAALQCAABZAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-25T05:09:10.801Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 16,
+              "Title": "Geometry.m",
+              "DocumentMoniker": "C:\\Users\\iboha\\source\\repos\\PythonProp\\SourceCode\\Geometry.m",
+              "RelativeDocumentMoniker": "..\\SourceCode\\Geometry.m",
+              "ToolTip": "C:\\Users\\iboha\\source\\repos\\PythonProp\\SourceCode\\Geometry.m",
+              "RelativeToolTip": "..\\SourceCode\\Geometry.m",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAcAAABLAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-25T05:46:38.729Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 15,
+              "Title": "EppsOptimizer.m",
+              "DocumentMoniker": "C:\\Users\\iboha\\source\\repos\\PythonProp\\SourceCode\\EppsOptimizer.m",
+              "RelativeDocumentMoniker": "..\\SourceCode\\EppsOptimizer.m",
+              "ToolTip": "C:\\Users\\iboha\\source\\repos\\PythonProp\\SourceCode\\EppsOptimizer.m",
+              "RelativeToolTip": "..\\SourceCode\\EppsOptimizer.m",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-25T06:29:32.818Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 8,
+              "Title": "CLCD_vs_ALPHA.py",
+              "DocumentMoniker": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\CLCD_vs_ALPHA.py",
+              "RelativeDocumentMoniker": "Examples\\Ducted_Prop\\CLCD_vs_ALPHA.py",
+              "ToolTip": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\CLCD_vs_ALPHA.py",
+              "RelativeToolTip": "Examples\\Ducted_Prop\\CLCD_vs_ALPHA.py",
+              "ViewState": "AgIAAB8AAAAAAAAAAAAEwAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-24T04:07:13.966Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 12,
+              "Title": "Forces.py",
+              "DocumentMoniker": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\Forces.py",
+              "RelativeDocumentMoniker": "Examples\\Ducted_Prop\\Forces.py",
+              "ToolTip": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\Forces.py",
+              "RelativeToolTip": "Examples\\Ducted_Prop\\Forces.py",
+              "ViewState": "AgIAAJMAAAAAAAAAAAAAALAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-25T06:52:54.952Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 13,
+              "Title": "Forces.m",
+              "DocumentMoniker": "C:\\Users\\iboha\\source\\repos\\PythonProp\\SourceCode\\Forces.m",
+              "RelativeDocumentMoniker": "..\\SourceCode\\Forces.m",
+              "ToolTip": "C:\\Users\\iboha\\source\\repos\\PythonProp\\SourceCode\\Forces.m",
+              "RelativeToolTip": "..\\SourceCode\\Forces.m",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-25T06:56:08.201Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 10,
+              "Title": "Duct_Thrust.m",
+              "DocumentMoniker": "C:\\Users\\iboha\\source\\repos\\PythonProp\\SourceCode\\Duct_Thrust.m",
+              "RelativeDocumentMoniker": "..\\SourceCode\\Duct_Thrust.m",
+              "ToolTip": "C:\\Users\\iboha\\source\\repos\\PythonProp\\SourceCode\\Duct_Thrust.m",
+              "RelativeToolTip": "..\\SourceCode\\Duct_Thrust.m",
+              "ViewState": "AgIAAEIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-25T07:02:21.462Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 14,
+              "Title": "Geometry.py",
+              "DocumentMoniker": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\Geometry.py",
+              "RelativeDocumentMoniker": "Examples\\Ducted_Prop\\Geometry.py",
+              "ToolTip": "C:\\Users\\iboha\\source\\repos\\PythonProp\\Python\\Examples\\Ducted_Prop\\Geometry.py",
+              "RelativeToolTip": "Examples\\Ducted_Prop\\Geometry.py",
+              "ViewState": "AgIAALwBAAAAAAAAAADwv90BAAAXAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-04-24T06:19:40.107Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

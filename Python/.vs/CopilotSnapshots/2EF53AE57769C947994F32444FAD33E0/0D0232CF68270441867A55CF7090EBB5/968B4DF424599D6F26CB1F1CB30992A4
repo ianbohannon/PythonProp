@@ -1,0 +1,116 @@
+﻿# Port target: SourceCode/Wrench.m
+"""Helical trailing-vortex induced velocity (Wrench / Lerbs induction factors).
+
+This function evaluates the velocity induced on a point on the key
+lifting line due to a unit-strength helical trailing vortex shed from
+each of the Z lifting lines. This function returns non-dimensional 
+induction factors: 2*pi*R*(dimensional u_bar)
+
+Reference:
+    Lerbs, H.W. "Moderately Loaded Propellers with a Finite Number of Blades 
+                and an Arbitrary Distribution of Circulation."  
+                Trans. SNAME, v. 60, 1952.
+    Wrench, J. W. "The Calculation of Propeller Induction Factors," Technical 
+                    Report 1116, David Taylor Model Basin, February, 1957.
+
+Sign convention:
+    The circulation of a trailing vortex is defined positive when it is 
+    directed AWAY from the lifting line (i.e. downstream).
+
+    UASTAR is defined positive in the axial direction
+    UTSTAR is defined positive in the direction of the apparent inflow, omega*r
+
+Copyright (C) 2011, Brenden Epps.
+Ported to Python: 2024
+"""
+
+import numpy as np
+
+
+def Wrench(Z, TANBIV, rc, rv):
+    """Return axial and tangential velocity induced at *rc* by a helical vortex at *rv*.
+
+    Implements the Lerbs (1952) / Wrench (1957) infinite-series formula for
+    helical vortex induction with finite number of blades. The return values are
+    scaled as ``2*pi*R * u_bar`` per unit non-dimensional circulation, following
+    Kerwin & Hadler (2010), equations 202-203.
+
+    Parameters
+    ----------
+    Z : int
+        Number of blades.
+    TANBIV : float
+        Tangent of the pitch angle of helical wake trailing vortex (tan_betaW).
+    rc : float
+        Control-point radius / propeller radius at which velocity is evaluated.
+    rv : float
+        Vortex-point radius / propeller radius at which the vortex is shed.
+
+    Returns
+    -------
+    u_barA : float
+        ``2*pi*R`` times axial induced velocity per unit circulation.
+    u_barT : float
+        ``2*pi*R`` times tangential induced velocity per unit circulation.
+    """
+    # Convert to float to ensure proper division
+    Z = float(Z)
+    tan_betaW = float(TANBIV)
+    rc = float(rc)
+    rv = float(rv)
+
+    # Compute auxiliary variables
+    y = rc / (rv * tan_betaW)
+    y0 = 1.0 / tan_betaW
+
+    # Compute U factor (Lerbs parameter)
+    sqrt_1_y2 = np.sqrt(1.0 + y**2)
+    sqrt_1_y02 = np.sqrt(1.0 + y0**2)
+
+    U = ((y0 * (sqrt_1_y2 - 1.0)) * np.exp(sqrt_1_y2 - sqrt_1_y02) / 
+         (y * (sqrt_1_y02 - 1.0)))**Z
+
+    # Three cases based on rc vs rv
+    if np.abs(rc - rv) < 1e-10:  # rc == rv (within numerical tolerance)
+        u_barA = 0.0
+        u_barT = 0.0
+
+    elif rc < rv:
+        # F1 formula for control point inside vortex radius
+        U_inv_minus_1 = 1.0 / U - 1.0
+
+        if np.abs(U_inv_minus_1) < 1e-10:
+            # Avoid division by zero
+            F1 = 0.0
+        else:
+            term1 = 1.0 / U_inv_minus_1
+            term2 = (1.0 / (24.0 * Z)) * (
+                ((9.0 * y0**2 + 2.0) / (1.0 + y0**2)**1.5) + 
+                ((3.0 * y**2 - 2.0) / (1.0 + y**2)**1.5)
+            ) * np.log(1.0 + (1.0 / U_inv_minus_1))
+
+            F1 = -(1.0 / (2.0 * Z * y0)) * ((1.0 + y0**2) / (1.0 + y**2))**0.25 * (term1 + term2)
+
+        u_barA = Z / (2.0 * rv * tan_betaW) - y * Z**2 * y0 * F1 / rc
+        u_barT = Z**2 * y0 * F1 / rc
+
+    else:  # rc > rv
+        # F2 formula for control point outside vortex radius
+        U_minus_1 = U - 1.0
+
+        if np.abs(U_minus_1) < 1e-10:
+            # Avoid division by zero
+            F2 = 0.0
+        else:
+            term1 = 1.0 / U_minus_1
+            term2 = (1.0 / (24.0 * Z)) * (
+                ((9.0 * y0**2 + 2.0) / (1.0 + y0**2)**1.5) + 
+                ((3.0 * y**2 - 2.0) / (1.0 + y**2)**1.5)
+            ) * np.log(1.0 + (1.0 / U_minus_1))
+
+            F2 = (1.0 / (2.0 * Z * y0)) * ((1.0 + y0**2) / (1.0 + y**2))**0.25 * (term1 - term2)
+
+        u_barA = -y * Z**2 * y0 * F2 / rc
+        u_barT = Z / (2.0 * rc) + Z**2 * y0 * F2 / rc
+
+    return u_barA, u_barT

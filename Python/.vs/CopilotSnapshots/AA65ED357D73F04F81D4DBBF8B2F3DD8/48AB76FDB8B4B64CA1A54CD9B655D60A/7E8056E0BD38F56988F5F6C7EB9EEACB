@@ -1,0 +1,317 @@
+﻿# ----------------------------------------------------------------------- #
+#                                                                         #
+#                              0111000                                    #
+#                           100 1 100 001                                 #
+#                         10    1  1  1 00                                #
+#                        01  1  1  1      0                               #
+#                       0 1  1  1   1  1 1 0                              #
+#                       0   1   1   1  1  1 0                             #
+#                       0 1     1   1  1  1 0                             #
+#                       0 1  1  1   1  0  1 0                             #
+#                       0 1  1  1   0  1    0                             #
+#                       01 1        1  1 1 0                              #
+#                        0    0  1  0 1   0                               #
+#                         0         1    0                                #
+#                    10010 0 1101111110111                                #
+#                  10 1 1  1111111111 11 11                               #
+#                 0 1 1 1 11111111101011010111                            #
+#                01 11    11111111 1  1    1 110                          #
+#               011    1 1 111111110011  1 1 1 110                        #
+#               0   11 1 1 1 111      0  1 1 1   10                       #
+#               0 1   11  1  0         1 1 1 1 1 1 0                      #
+#               1  11 1 1   11          0  1 1 1 1 11                     #
+#                0     1 1  0           011  1 1 1 10                     #
+#                10 1   1  0             0  1 1 1  11                     #
+#                 10     01               01      10                      #
+#                   10001                   001 100                       #
+#                                             111                         #
+#                                                                         #
+#             ____                   _____                                #
+#            / __ \                 |  __ \                               #
+#           | |  | |_ __   ___ _ __ | |__) | __ ___  _ __                 #
+#           | |  | | '_ \ / _ \ '_ \|  ___/ '__/ _ \| '_ \                #
+#           | |__| | |_) |  __/ | | | |   | | | (_) | |_) |               #
+#            \____/| .__/ \___|_| |_|_|   |_|  \___/| .__/                #
+#                  | |                              | |                   #
+#                  |_|                              |_|                   #
+#                                                                         #
+#             An integrated rotor design and analysis tool.               #
+#                                                                         #
+#                                                                         #
+# Copyright (C) 2011, Brenden Epps.                                       #
+#                                                                         #
+# This program is free software; you can redistribute it and/or modify it #
+# under the terms of the GNU General Public License as published by the   #
+# Free Software Foundation.                                               #
+#                                                                         #
+# This program is distributed in the hope that it will be useful, but     #
+# WITHOUT ANY WARRANTY; without even the implied warranty of              #
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                    #
+# See the GNU General Public License for more details.                    #
+#                                                                         #
+# ----------------------------------------------------------------------- #
+
+# =========================================================================
+# ======================================================== Duct_Influence.py
+# Created: J.M. Stubblefield, 2008    (originally named ductVort)
+# Last Modified: 11/2/2011, Brenden Epps
+# Ported to Python: 2024
+#
+# -------------------------------------------------------------------------
+# This function:
+#   1) Forms a discrete vortex ring representation of a duct with 
+#           -- chord length Cduct_oR and axial offset Xduct_oR,
+#           -- radius Rduct_oR, and
+#           -- a NACA a=0.8 meanline 
+#
+#   2) Calculates axial velocity duct influence function (UADIF)
+#      on propeller lifting line control points
+#
+# -------------------------------------------------------------------------
+
+"""Compute duct influence functions on the propeller blade panels."""
+
+import numpy as np
+from scipy.special import ellipk, ellipe
+
+
+def Duct_Influence(Rduct_oR, Cduct_oR, Xduct_oR, RC):
+    """Compute duct geometry and its axial influence on propeller control points.
+
+    Ported from ``SourceCode/Duct_Influence.m`` (OpenProp v3.3.4).
+
+    Forms a discrete vortex ring representation of a duct with a NACA a=0.8
+    meanline and calculates the axial velocity duct influence function (UADIF)
+    on propeller lifting line control points.
+
+    Model parameters:
+        Rduct_oR      : duct radius / propeller radius
+        Cduct_oR      : duct chord  / propeller radius
+        Xduct_oR      : location of duct mid-chord downstream of propeller
+
+        XdRING        : x/R location of each vortex ring downstream of propeller
+        GdRING        : fraction of total non-dimensional duct circulation
+                        (i.e. circulation per unit Gd), where sum(GdRING) = 1
+        Gd            : total non-dimensional circulation about the duct
+
+        UADIF         : axial velocity induced on PROP by duct per unit Gd
+
+    Parameters
+    ----------
+    Rduct_oR : float
+        Duct radius / propeller radius.
+    Cduct_oR : float
+        Duct chord / propeller radius.
+    Xduct_oR : float
+        Axial position of duct mid-chord / propeller radius (positive
+        downstream of propeller).
+    RC : array_like, shape (Mp,)
+        Control-point radii (r/R) on propeller lifting line.
+
+    Returns
+    -------
+    XdRING : ndarray, shape (Nd,)
+        Axial (x/R) positions of the duct vortex rings.
+    GdRING : ndarray, shape (Nd,)
+        Relative circulation of each duct ring (sums to 1).
+        Non-dimensional circulation of ring n is Gd*GdRING[n].
+    UADIF : ndarray, shape (Mp,)
+        Axial velocity induced at each propeller control point per unit
+        duct circulation Gd (i.e. non-dimensional Duct Influence Function).
+        UADIF = 2*pi*R * (duct influence function with unit dimensional 
+        duct circulation).
+
+    Notes
+    -----
+    The code uses Nd=12 vortex rings and is numerically unstable for Nd>20
+    and generally slow for Nd>10.
+
+    The discrete vortex ring formulation breaks down near the duct, so 
+    UADIF is extrapolated for RC > 0.9*Rduct_oR.
+
+    Since GdRING is non-dimensionalized with respect to Gd, UADIF represents
+    the axial flow velocity induced per unit Gd, which is the correct 
+    influence function.
+
+    References
+    ----------
+    Kuchemann and Weber, Aerodynamics of Propulsion, p. 305.
+    """
+    RC = np.asarray(RC, dtype=float)
+    Mp = len(RC)
+
+    # ----------------------------------------- Setup vortex ring axial spacing
+    # Note that the code is numerically unstable for Nd > 20 and generally 
+    # slow for Nd > 10. Nd must be even.
+    Nd = 12  # number of vortex rings
+
+    dS = 1.0 / Nd      # even spacing between vortex rings / Cduct_oR
+    hdS = 0.5 * dS     # half of dS
+
+    # -------------------------------------------------------------------------
+    # Compute the circulation on the vortex rings which each represent 
+    # a section of length dS located at position XdRING of a NACA a=0.8 
+    # mean line (L.E.=0.0, T.E.=1.0) that has unit circulation 1 [m^2/s].
+    #
+    XdRING = np.zeros(Nd)
+    GdRING = np.zeros(Nd)
+
+    # Note that since Gamma_d*GdRING[n] is the circulation of ring (n), then
+    # the circulation distribution of the rings, GdRING, is actually unitless!
+    # If Gamma_d is scaled or normalized, then GdRING remains unitless and
+    # always gives the correct circulation distribution.
+
+    for n in range(Nd):
+        XdRING[n] = n * dS + hdS
+
+        x2 = XdRING[n] + hdS
+        x1 = XdRING[n] - hdS
+
+        if x2 <= 0.8:
+            GdRING[n] = dS / 0.9
+        elif x1 >= 0.8:
+            y1 = 1.0 - (x1 - 0.8) / 0.2
+            y2 = 1.0 - (x2 - 0.8) / 0.2
+            GdRING[n] = dS * 0.5 * (y1 + y2) / 0.9
+        else:
+            y2 = 1.0 - (x2 - 0.8) / 0.2
+            front = 0.8 - x1
+            back = 0.5 * (1.0 + y2) * (x2 - 0.8)
+            GdRING[n] = (front + back) / 0.9
+
+    LED = -(Nd / 2.0) * dS                      # X position of "leading edge" vortex ring
+    XdRING = XdRING + LED                       # X position of vortex rings / Cduct_oR
+    XdRING = XdRING * Cduct_oR + Xduct_oR       # X position of vortex rings / R
+
+    # -------------------------------------------------------------------------
+    # Calculate duct influence function (UADIF) on the UASTAR
+    # axial velocity at propeller lifting line control points
+    # Note: No tangential influence
+    # Note: Radial influence does not create a force on radial lifting line
+
+    UADIF = np.zeros(Mp)  # axial influence of unit strength
+
+    for m in range(Mp):         # for each control point on lifting line
+        for n in range(Nd):     # cycle thru all vortex rings on duct
+            UAD, _ = vRing(XdRING[n], Rduct_oR, 0.0, RC[m], GdRING[n])
+            UADIF[m] = UADIF[m] + UAD
+
+    # The discrete vortex ring formulation breaks down near the duct, so 
+    # extrapolate UADIF for RC > 0.9*Rduct_oR
+    indices = RC <= 0.9 * Rduct_oR
+
+    if np.any(indices):
+        UADIF = np.interp(RC, RC[indices], UADIF[indices])
+
+    # Since GdRING is non-dimensionalized with respect to Gd, then
+    # UADIF represents the axial flow velocity induced per unit Gd, which
+    # is the correct influence function.
+
+    return XdRING, GdRING, UADIF
+
+
+# =========================================================================
+# ===================================================== vRing Function
+# Created: J.M. Stubblefield, 2008
+# Edited:  B.P. Epps, 2010
+# Ported to Python: 2024
+#
+# Returns axial and radial velocity at field point (XF,RF) induced by 
+# vortex ring of NON-DIMENSIONAL circulation Gring = Gamma/(2*pi*R*Vs) 
+# at x-axis location (Xring) and radius (Rring).
+#
+# NOTE: The inputs MUST be non-dimensionalized as follows.  For dimensional
+#       inputs, the output velocity must be multiplied by 2*pi*Vs
+#
+# Example: for R = 1 m, Vs = 1 m/s, Gamma = 1 m^2/s
+#              Xring = XF = 0, Rring = 1, RF = 0 (i.e. center of ring)
+#          then Gring = 1/(2*pi)
+#          so  [UA,UR] = vRing(0,1,0,0,1/(2*pi))
+#          check dimensional output: UA*Vs = Gamma / (2*Rring*R)
+#
+# Ref: Kuchemann and Weber, Aerodynamics of Propulsion p 305.
+# =========================================================================
+
+def vRing(Xring, Rring, XF, RF, Gring):
+    """Calculate velocity induced by a vortex ring.
+
+    Returns axial and radial velocity at field point (XF, RF) induced by 
+    vortex ring of non-dimensional circulation Gring = Gamma/(2*pi*R*Vs) 
+    at x-axis location (Xring) and radius (Rring).
+
+    Parameters
+    ----------
+    Xring : float
+        Axial location of vortex ring / R.
+    Rring : float
+        Radius of vortex ring / R.
+    XF : float
+        Axial location of field point / R.
+    RF : float
+        Radial location of field point / R.
+    Gring : float
+        Vortex ring circulation / (2*pi*R*Vs).
+
+    Returns
+    -------
+    UA : float
+        Axial velocity / Vs at field point.
+    UR : float
+        Radial velocity / Vs at field point.
+
+    Notes
+    -----
+    The inputs MUST be non-dimensionalized. For dimensional inputs, 
+    the output velocity must be multiplied by 2*pi*Vs.
+
+    Variables:
+        R  [m]     : propeller radius
+        Vs [m/s]   : ship speed
+        Gring      : vortex ring circulation / (2*pi*R*Vs)
+        Xring      : x/R, axial location of vortex ring / R
+        Rring      : r/R, radius of vortex ring / R
+        XF         : x/R, field point at which velocity is induced
+        RF         : r/R, field point at which velocity is induced
+
+    Returns: 
+        UA         : axial velocity / Vs at field point
+        UR         : radial velocity / Vs at field point
+
+    Reference
+    ---------
+    Kuchemann and Weber, Aerodynamics of Propulsion, p. 305.
+    """
+    if Rring == 0:  # stop function if Rring = 0
+        return 0.0, 0.0
+
+    if XF == Xring and RF == Rring:  # stop if field point on vortex ring
+        return 0.0, 0.0
+
+    # --------------------------------------- Non-dimensional coordinates (x,r)
+    x = (XF - Xring) / Rring  # x/r' from Kuchemann
+    r = RF / Rring            # r/r' from Kuchemann
+
+    # Elliptic integral method (Kuchemann p. 305)
+    # uses parameter k where k^2 = m for elliptic integrals
+    k_squared = 4.0 * r / (x ** 2 + (r + 1.0) ** 2)
+
+    # Complete elliptic integrals of first and second kind
+    K = ellipk(k_squared)
+    E = ellipe(k_squared)
+
+    # Axial velocity
+    UA = (Gring / Rring / np.sqrt(x ** 2 + (r + 1.0) ** 2) *
+          (K - (1.0 + 2.0 * (r - 1.0) / (x ** 2 + (r - 1.0) ** 2)) * E))
+
+    # Radial velocity
+    if r == 0:
+        UR = 0.0
+    else:
+        UR = (Gring / Rring * (-x) / r / np.sqrt(x ** 2 + (r + 1.0) ** 2) *
+              (K - (1.0 + 2.0 * r / (x ** 2 + (r - 1.0) ** 2)) * E))
+
+    return UA, UR
+
+
+# ========================================= END Duct_Influence Function
+# =========================================================================

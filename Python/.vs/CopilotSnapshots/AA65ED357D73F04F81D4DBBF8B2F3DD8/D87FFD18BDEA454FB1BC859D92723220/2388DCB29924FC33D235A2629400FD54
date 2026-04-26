@@ -1,0 +1,405 @@
+﻿# ----------------------------------------------------------------------- #
+#                                                                         #
+#                              0111000                                    #
+#                           100 1 100 001                                 #
+#                         10    1  1  1 00                                #
+#                        01  1  1  1      0                               #
+#                       0 1  1  1   1  1 1 0                              #
+#                       0   1   1   1  1  1 0                             #
+#                       0 1     1   1  1  1 0                             #
+#                       0 1  1  1   1  0  1 0                             #
+#                       0 1  1  1   0  1    0                             #
+#                       01 1        1  1 1 0                              #
+#                        0    0  1  0 1   0                               #
+#                         0         1    0                                #
+#                    10010 0 1101111110111                                #
+#                  10 1 1  1111111111 11 11                               #
+#                 0 1 1 1 11111111101011010111                            #
+#                01 11    11111111 1  1    1 110                          #
+#               011    1 1 111111110011  1 1 1 110                        #
+#               0   11 1 1 1 111      0  1 1 1   10                       #
+#               0 1   11  1  0         1 1 1 1 1 1 0                      #
+#               1  11 1 1   11          0  1 1 1 1 11                     #
+#                0     1 1  0           011  1 1 1 10                     #
+#                10 1   1  0             0  1 1 1  11                     #
+#                 10     01               01      10                      #
+#                   10001                   001 100                       #
+#                                             111                         #
+#                                                                         #
+#             ____                   _____                                #
+#            / __ \                 |  __ \                               #
+#           | |  | |_ __   ___ _ __ | |__) | __ ___  _ __                 #
+#           | |  | | '_ \ / _ \ '_ \|  ___/ '__/ _ \| '_ \                #
+#           | |__| | |_) |  __/ | | | |   | | | (_) | |_) |               #
+#            \____/| .__/ \___|_| |_|_|   |_|  \___/| .__/                #
+#                  | |                              | |                   #
+#                  |_|                              |_|                   #
+#                                                                         #
+#             An integrated rotor design and analysis tool.               #
+#                                                                         #
+#                                                                         #
+# Copyright (C) 2011, Brenden Epps.                                       #
+#                                                                         #
+# This program is free software; you can redistribute it and/or modify it #
+# under the terms of the GNU General Public License as published by the   #
+# Free Software Foundation.                                               #
+#                                                                         #
+# This program is distributed in the hope that it will be useful, but     #
+# WITHOUT ANY WARRANTY; without even the implied warranty of              #
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                    #
+# See the GNU General Public License for more details.                    #
+#                                                                         #
+# ----------------------------------------------------------------------- #
+
+"""
+InterpolateChord - Fits cubic B-spline to chord distribution and interpolates
+
+Created: Brenden Epps, 2/18/2011
+Ported to Python: 2024
+
+This function fits a cubic B-spline to a given chord distribution and 
+interpolates this chord at the desired radii.
+
+INPUTS
+  XR      [1,Mx] r/R given radii
+  XCoD    [1,Mx] c/D given chord at XR
+  RG      [1,Mp] r/R locations to interpolate chord 
+
+OUTPUTS
+  CoD     [1,Mp] c/D at RG
+"""
+
+import numpy as np
+from scipy.interpolate import interp1d
+
+
+def InterpolateChord(XR, XCoD, RG):
+    """Interpolate chord distribution using B-spline curve fitting.
+
+    Parameters
+    ----------
+    XR : array_like, shape (Mx,)
+        Given radii r/R where chord is defined
+    XCoD : array_like, shape (Mx,)
+        Chord/diameter at XR
+    RG : array_like, shape (Mp,)
+        Radii r/R where interpolation is required
+
+    Returns
+    -------
+    CoD : ndarray, shape (Mp,)
+        Chord/diameter at RG
+    """
+    XR = np.asarray(XR).flatten()
+    XCoD = np.asarray(XCoD).flatten()
+    RG_input = np.asarray(RG)
+    original_shape = RG_input.shape
+    RG = RG_input.flatten()
+
+    # Check if finite chord at tip (XR == 1 and XCoD > 0.01 at tip)
+    if (abs(XR[-1] - 1) < 1e-4) and (XCoD[-1] > 0.01):
+        # Allow for finite chord at tip using PCHIP
+        CoD = pchip1d(XR, XCoD, RG)
+    else:
+        # Assume near-zero chord at tip, interpolate using B-spline curve fit
+        Mx = len(XR)
+
+        if XR[-1] == 1:
+            # Record tip chord length
+            CoDtip = XCoD[-1]
+            # Set tip chord length to zero to form spline
+            XCoD = XCoD.copy()
+            XCoD[-1] = 0
+        else:
+            # Create another data point at the tip
+            XR = np.append(XR, 1.0)
+            XCoD = np.append(XCoD, 0.0)
+            CoDtip = 0
+            Mx = Mx + 1
+
+        # Put all numbers in one list: data to fit spline to
+        # Mirror the chord distribution to create symmetric blade outline
+        xr2 = np.concatenate([XR, XR[Mx-2::-1]])
+        xc2 = np.concatenate([XCoD, -XCoD[Mx-2::-1]])
+
+        # Spline inputs
+        Md = len(xr2)  # number of spanwise data sites
+        m = Md - 1     # number of spline basis functions / control points
+        k = 4          # polynomial order (k == 4 for cubic spline)
+        Mk = k + m + 1 # number of spanwise knots
+
+        # Find spline parameters using centripetal method
+        dseg = np.sqrt(np.diff(xr2)**2 + np.diff(xc2)**2)**0.5
+        dtot = np.sum(dseg)
+        ubar = np.zeros(Md)
+        ubar[1:] = np.cumsum(dseg) / dtot
+
+        # Find spline knots using averaging method
+        uknot = np.zeros(Mk)
+        uknot[m+1:Mk] = 1.0
+
+        for j in range(m + 1 - k):
+            uknot[k + j] = np.sum(ubar[1 + j : 1 + j + k - 1]) / (k - 1)
+
+        # Evaluate the B-spline basis functions
+        BC, _, _, _ = Bspline_basis(ubar, uknot, k)
+
+        # Solve linear system for spline amplitudes
+        # xr2(ubar) = BC(ubar, uspline) * Axr2(uspline)
+        # xc2(ubar) = BC(ubar, uspline) * Axc2(uspline)
+        Axr2 = np.linalg.solve(BC, xr2)
+        Axc2 = np.linalg.solve(BC, xc2)
+
+        # Evaluate spline on finer resolution
+        Mdd = 401
+        ubarFINE = np.linspace(0, 1, Mdd)
+
+        BC_fine, _, _, _ = Bspline_basis(ubarFINE, uknot, k)
+
+        xr3 = BC_fine @ Axr2
+        xc3 = BC_fine @ Axc2
+
+        # Fine resolution spline radius and chord length data
+        xr = xr3[:(Mdd-1)//2 + 1]
+        xc = xc3[:(Mdd-1)//2 + 1]
+
+        # Interpolate spline values at desired radii
+        CoDraw = interp1d(xr, xc, kind='cubic', bounds_error=False, 
+                          fill_value='extrapolate')(RG)
+
+        # Offset distribution, used to modify chord at the tip
+        CoDoffset = (RG - RG[0]) / (1 - RG[0]) * CoDtip
+
+        # Final chord distribution
+        CoD = np.sqrt(CoDraw**2 + CoDoffset**2)
+
+    # Reshape if necessary to match input shape
+    if CoD.shape[0] == original_shape[-1] and len(original_shape) > 1:
+        CoD = CoD.reshape(original_shape)
+
+    return CoD
+
+
+def Bspline_basis(t, n_or_knot, k):
+    """Evaluate B-spline basis functions at points t.
+
+    Parameters
+    ----------
+    t : array_like, shape (Mt,)
+        Vector of field points
+    n_or_knot : int or array_like
+        If int: spline parameter n, Ms == n+1 == number of splines
+        If array: knot vector
+    k : int
+        Spline order, k == 4 for cubic splines
+
+    Returns
+    -------
+    B : ndarray, shape (Mt, Ms)
+        B-spline basis functions, B[i,j] = basis function j at t[i]
+    D1 : ndarray, shape (Mt, Ms)
+        First derivative of basis functions
+    D2 : ndarray, shape (Mt, Ms)
+        Second derivative of basis functions
+    knot : ndarray, shape (Mk,)
+        Knot vector
+    """
+    t = np.asarray(t).flatten()
+    Mt = len(t)
+
+    # Handle knot sequence
+    if np.isscalar(n_or_knot):
+        n = n_or_knot
+        Mk = k + n + 1
+
+        # Form a uniform knot sequence on [0,1]
+        knot = np.zeros(Mk)
+        knot[k-1:n+2] = np.linspace(0, 1, n - k + 3)
+        knot[n+2:k+n+1] = 1.0
+    else:
+        knot = np.asarray(n_or_knot).flatten()
+        Mk = len(knot)
+        n = Mk - k - 1
+
+    maxknot = np.max(knot)
+    Ms = n + 1  # number of basis splines
+
+    # Initialize arrays
+    N = np.zeros((Mk-1, k, Mt))   # B-spline basis functions of order 1,...,k
+    N1 = np.zeros((Mk-1, k, Mt))  # 1st derivative
+    N2 = np.zeros((Mk-1, k, Mt))  # 2nd derivative
+
+    B = np.zeros((Mt, Ms))        # B-spline basis functions of order k
+    D1 = np.zeros((Mt, Ms))       # 1st derivative
+    D2 = np.zeros((Mt, Ms))       # 2nd derivative
+
+    # Evaluate B-spline pointwise in t
+    for point in range(Mt):
+        # Evaluate order 1 basis functions
+        j = 0  # Python uses 0-indexing
+        for i in range(Mk-1):
+            if ((knot[i] <= t[point] < knot[i+1]) or 
+                (knot[i] < t[point] and knot[i+1] == maxknot and t[point] == maxknot)):
+                N[i, j, point] = 1
+
+        # Apply recursion relation to evaluate higher order basis functions
+        for j in range(1, k):  # j = 1 to k-1 (orders 2 to k)
+            for i in range(Mk - j - 1):
+                denom1 = knot[i+j] - knot[i]
+                denom2 = knot[i+j+1] - knot[i+1]
+
+                if denom1 != 0 and denom2 != 0:
+                    # Both terms contribute
+                    w1 = (t[point] - knot[i]) / denom1
+                    w2 = (knot[i+j+1] - t[point]) / denom2
+
+                    N[i, j, point] = w1 * N[i, j-1, point] + w2 * N[i+1, j-1, point]
+                    N1[i, j, point] = (j * N[i, j-1, point] / denom1 - 
+                                       j * N[i+1, j-1, point] / denom2)
+                    N2[i, j, point] = (j * N1[i, j-1, point] / denom1 - 
+                                       j * N1[i+1, j-1, point] / denom2)
+
+                elif denom1 == 0 and denom2 != 0:
+                    # Only second term contributes
+                    w2 = (knot[i+j+1] - t[point]) / denom2
+
+                    N[i, j, point] = w2 * N[i+1, j-1, point]
+                    N1[i, j, point] = -j * N[i+1, j-1, point] / denom2
+                    N2[i, j, point] = -j * N1[i+1, j-1, point] / denom2
+
+                elif denom1 != 0 and denom2 == 0:
+                    # Only first term contributes
+                    w1 = (t[point] - knot[i]) / denom1
+
+                    N[i, j, point] = w1 * N[i, j-1, point]
+                    N1[i, j, point] = j * N[i, j-1, point] / denom1
+                    N2[i, j, point] = j * N1[i, j-1, point] / denom1
+
+        # Record spline basis functions of order k
+        B[point, :] = N[:Ms, k-1, point]
+        D1[point, :] = N1[:Ms, k-1, point]
+        D2[point, :] = N2[:Ms, k-1, point]
+
+    return B, D1, D2, knot
+
+
+def pchip1d(x, v, xx):
+    """Piecewise cubic Hermite interpolation.
+
+    Textbook implementation replicating MATLAB's PCHIP.
+
+    Parameters
+    ----------
+    x : array_like, shape (Nx,)
+        Data point x-coordinates
+    v : array_like, shape (Nx,)
+        Data point values
+    xx : array_like, shape (Nxx,)
+        Query points
+
+    Returns
+    -------
+    vv : ndarray, shape (Nxx,)
+        Interpolated values at xx
+    """
+    x = np.asarray(x).flatten()
+    v = np.asarray(v).flatten()
+    xx = np.asarray(xx).flatten()
+
+    Nx = len(x)
+    Nxx = len(xx)
+
+    # Estimate derivative dv/dx at x
+    vx = pchipslopes(x, v)
+
+    # Interpolate at xx
+    vv = np.zeros(Nxx)
+
+    for ii in range(Nxx):
+        # Find index i such that x[i] <= xx[ii] <= x[i+1]
+        i = np.searchsorted(x, xx[ii], side='right') - 1
+        i = max(0, min(i, Nx-2))  # Ensure i is in valid range
+
+        # Interval length
+        h = x[i+1] - x[i]
+
+        # Sub-interval position
+        s = (xx[ii] - x[i]) / h
+
+        # Evaluate Hermite polynomials
+        H1 = 1 - 3*s**2 + 2*s**3
+        H2 = 3*s**2 - 2*s**3
+        H3 = s * (s - 1)**2 * h
+        H4 = s**2 * (s - 1) * h
+
+        # Evaluate interpolant
+        vv[ii] = v[i] * H1 + v[i+1] * H2 + vx[i] * H3 + vx[i+1] * H4
+
+    return vv
+
+
+def pchipslopes(x, v):
+    """Compute first derivative slopes for shape-preserving Hermite cubic.
+
+    Parameters
+    ----------
+    x : array_like, shape (Nx,)
+        Data point x-coordinates
+    v : array_like, shape (Nx,)
+        Data point values
+
+    Returns
+    -------
+    d : ndarray, shape (Nx,)
+        Derivatives at x
+    """
+    x = np.asarray(x).flatten()
+    v = np.asarray(v).flatten()
+
+    h = np.diff(x)
+    delta = np.diff(v) / h
+
+    Nx = len(x)
+    d = np.zeros(Nx)
+
+    # Interior points: weighted harmonic mean if same sign
+    for i in range(1, Nx-1):
+        if np.sign(delta[i-1]) * np.sign(delta[i]) > 0:
+            w1 = 2 * h[i] + h[i-1]
+            w2 = h[i] + 2 * h[i-1]
+            d[i] = (w1 + w2) / (w1 / delta[i-1] + w2 / delta[i])
+
+    # Slopes at endpoints
+    d[0] = pchipend(h[0], h[1], delta[0], delta[1])
+    d[-1] = pchipend(h[-1], h[-2], delta[-1], delta[-2])
+
+    return d
+
+
+def pchipend(h1, h2, del1, del2):
+    """Noncentered, shape-preserving, three-point formula for endpoint slopes.
+
+    Parameters
+    ----------
+    h1 : float
+        Interval length near endpoint
+    h2 : float
+        Next interval length
+    del1 : float
+        Slope of near interval
+    del2 : float
+        Slope of next interval
+
+    Returns
+    -------
+    d : float
+        Derivative at endpoint
+    """
+    d = ((2*h1 + h2)*del1 - h1*del2) / (h1 + h2)
+
+    if np.sign(d) != np.sign(del1):
+        d = 0
+    elif (np.sign(del1) != np.sign(del2)) and (abs(d) > abs(3*del1)):
+        d = 3 * del1
+
+    return d

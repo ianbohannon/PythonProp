@@ -1,0 +1,898 @@
+# Port target: SourceCode/Geometry.m
+"""Generate propeller blade geometry from a design solution.
+
+This function determines the geometry of the propeller. It outputs
+the geometry as a 2D image, 3D image, and CAD files.
+
+Reference:
+  J.S. Carlton, "Marine Propellers & Propulsion", ch. 3, 1994.
+  Abbott, I. H., and Von Doenhoff, A. E.; Theory of Wing Sections.
+  Dover, 1959.
+
+Ported from OpenProp v3.3.4 SourceCode/Geometry.m
+"""
+
+import numpy as np
+from scipy.interpolate import pchip_interpolate
+from datetime import datetime
+
+from GeometryFoil2D import GeometryFoil2D
+from InterpolateChord import InterpolateChord
+
+
+def Geometry(pt, RG=None):
+    """Compute 3-D blade geometry from the design dictionary in *pt*.
+
+    Parameters
+    ----------
+    pt : dict
+        Propeller/turbine data structure with at least ``pt['input']`` and
+        ``pt['design']`` populated.
+    RG : array_like, optional
+        Geometry radii (r/R) at which to compute blade sections.
+        If None, cosine-spaced radii will be automatically generated.
+
+    Returns
+    -------
+    geometry : dict
+        Geometry output dictionary containing:
+        - Meanline, Thickness: foil section types
+        - Z: number of blades
+        - D: propeller diameter [m]
+        - Dhub: hub diameter [m]
+        - EAR: expanded area ratio
+        - BTF: blade thickness fraction
+        - RG: geometry radii (r/R)
+        - CoD: chord / diameter at RG
+        - t0oD: max thickness / diameter at RG
+        - t0oc: max thickness / chord at RG
+        - f0oc: max camber / chord at RG
+        - BetaI: hydrodynamic pitch angle [deg] at RG
+        - alpha: ideal angle of attack [deg] at RG
+        - theta: nose-tail pitch angle [deg] at RG
+        - PoD: pitch / diameter at RG
+        - skew: skew angle [deg] at RG
+        - rake: rake / diameter at RG
+    """
+    # ------------------------------------------------- Check for script or GUI
+    RadiiGiven_flag = (RG is not None)
+
+    # -------------------------------------------------------- Unpack variables
+    # Handle legacy field names
+    if 'i' in pt and 'input' not in pt:
+        pt['input'] = pt['i']
+    if 'd' in pt and 'design' not in pt:
+        pt['design'] = pt['d']
+
+    # Date string
+    Date_string = pt.get('date', datetime.now().strftime('%Y-%m-%d'))
+
+    # Filename
+    if 'filename' in pt:
+        filename = pt['filename']
+    elif 'name' in pt:
+        filename = pt['name']
+    elif 'filename' in pt['input']:
+        filename = pt['input']['filename']
+    else:
+        filename = 'OpenProp'
+
+    # Flags
+    Hub_flag = pt['input'].get('Hub_flag', 1)           # 0 == no hub, 1 == hub
+    Duct_flag = pt['input'].get('Duct_flag', 0)        # 0 == no duct, 1 == duct
+    Chord_flag = pt['input'].get('Chord_flag', 0)      # 0 == do not optimize chord, 1 == optimize chord
+    QuarterChord_flag = pt['input'].get('QuarterChord_flag', 0)  # 0 == mid-chord, 1 == quarter-chord
+
+    # Meanline and thickness forms
+    Meanline = pt['input'].get('Meanline', 'NACA a=0.8 (modified)')
+    Thickness = pt['input'].get('Thickness', 'NACA 65A010')
+
+    # Lifting Surface Geometry Corrections
+    LSGeoCorr = pt['input'].get('LSGeoCorr', 'none')
+
+    # Make output file flags
+    Make_GeoText_flag = pt['input'].get('Make_GeoText_flag', 1)
+    Make_LaTeX_flag = pt['input'].get('Make_LaTeX_flag', 0)
+
+    Z = pt['input']['Z']
+
+    # Advance coefficient
+    if 'Js' in pt['input']:
+        Js = pt['input']['Js']
+    elif 'L' in pt['input']:
+        Js = np.pi / pt['input']['L']
+    else:
+        Js = 1.0
+
+    Vs = pt['input'].get('Vs', 1.0)  # m/s
+
+    # Radius
+    if 'D' in pt['input']:
+        R = pt['input']['D'] / 2
+    elif 'R' in pt['input']:
+        R = pt['input']['R']
+    else:
+        R = 1.0
+
+    # Hub radius
+    if 'Dhub' in pt['input']:
+        Rhub = pt['input']['Dhub'] / 2
+    elif 'Rhub' in pt['input']:
+        Rhub = pt['input']['Rhub']
+    else:
+        Rhub = 0.2 * R
+
+    Rcirc = pt['input'].get('Rcirc', Rhub)  # m
+    Rroot = pt['input'].get('Rroot', Rhub)  # m
+    Np = pt['input'].get('Np', 20)
+
+    # Duct parameters
+    if Duct_flag == 1:
+        Rduct_oR = pt['design']['Rduct_oR']
+        Cduct_oR = pt['design']['Cduct_oR']
+        Xduct_oR = pt['design']['Xduct_oR']
+        Gd = pt['design']['Gd']
+        VARING = pt['design']['VARING']
+
+        Meanline_d = pt['input'].get('Meanline_d', 'NACA a=0.8 (modified)')
+        Thickness_d = pt['input'].get('Thickness_d', 'NACA 65A010')
+        t0oc_duct = pt['input'].get('t0oc_duct', 0.12)
+    else:
+        Rduct_oR = 1.0
+        Cduct_oR = 1.0
+        Xduct_oR = 0.0
+        Gd = 0.0
+        VARING = 0.0
+
+    Rduct = Rduct_oR * R
+    Cduct = Cduct_oR * R
+    Xduct = Xduct_oR * R
+
+    # Design variables
+    RC = pt['design']['RC']
+    RV = pt['design']['RV']
+    G = pt['design']['G'].T if isinstance(pt['design']['G'], np.ndarray) and pt['design']['G'].ndim > 1 else pt['design']['G']
+    CL = pt['design']['CL']
+    TANBIC = pt['design']['TANBIC']
+    BetaIC = np.rad2deg(np.arctan(pt['design']['TANBIC']))
+    BetaC = np.rad2deg(np.arctan(pt['design']['TANBC']))
+
+    Mp = len(RC)
+
+    TANBIV = pchip_interpolate(RC, pt['design']['TANBIC'], RV)
+
+    # Input geometry radii
+    if 'XR' in pt['input']:
+        XR = pt['input']['XR']
+        X1 = np.ones_like(XR)
+        X0 = np.zeros_like(XR)
+
+        skew0 = pt['input'].get('skew0', X0)  # [deg]
+        rake0 = pt['input'].get('rake0', X0)
+
+        if 'XCoD' in pt['input']:
+            XCoD = pt['input']['XCoD']
+
+            if 'Xt0oD' in pt['input']:
+                Xt0oD = pt['input']['Xt0oD']
+            elif 't0oc0' in pt['input']:
+                Xt0oD = pt['input']['t0oc0'] * XCoD
+            else:
+                from scipy.interpolate import PchipInterpolator
+                interp = PchipInterpolator(pt['design']['RC'], pt['design']['t0oD'], extrapolate=True)
+                Xt0oD = interp(XR)
+        else:
+            # Default geometry distributions
+            XXR = np.array([0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1.0])
+            XXCoD = np.array([0.1600, 0.1818, 0.2024, 0.2196, 0.2305, 0.2311, 0.2173, 0.1806, 0.1387, 0.0100])
+            Xt0oc0 = np.array([0.2056, 0.1551, 0.1181, 0.0902, 0.0694, 0.0541, 0.0419, 0.0332, 0.0324, 0.0100])
+
+            from scipy.interpolate import PchipInterpolator
+            XCoD = PchipInterpolator(XXR, XXCoD, extrapolate=True)(XR)
+            t0oc0 = PchipInterpolator(XXR, Xt0oc0, extrapolate=True)(XR)
+
+            if 'Xt0oD' in pt['input']:
+                Xt0oD = pt['input']['Xt0oD']
+            else:
+                Xt0oD = t0oc0 * XCoD
+    else:
+        XR = RC
+        skew0 = np.zeros_like(RC)
+        rake0 = np.zeros_like(RC)
+        Xt0oD = pt['design']['t0oD']
+
+    # Validation
+    if Rcirc < Rhub:
+        print('ERROR: Rcirc must be >= Rhub.')
+    if Rroot < Rcirc:
+        print('ERROR: Rroot must be >= Rcirc.')
+
+    t0circ = pt['input'].get('t0circ', XCoD[0])  # m
+
+    # Derived quantities
+    D = 2 * R
+    Dhub = 2 * Rhub
+    N = 60 * Vs / (Js * D)  # [RPM]
+
+    Rhub_oR = Rhub / R
+    Rroot_oR = Rroot / R
+    Rcirc_oR = Rcirc / R
+    RoR = 1.0
+
+    # Plot flags
+    Make2Dplot_flag = pt['input'].get('Make2Dplot_flag', 1)
+    Make3Dplot_flag = pt['input'].get('Make3Dplot_flag', 1)
+    Make_Rhino_flag = pt['input'].get('Make_Rhino_flag', 0)
+    Make_SWrks_flag = pt['input'].get('Make_SWrks_flag', 0)
+
+    # Model diameter
+    Dm = pt['input'].get('Dm', D)  # m
+    Rm = Dm / 2
+
+    # -------------------------------------------------------------------------
+    # ------------------ Interpolate input geometry at selected radial sections
+
+    if not RadiiGiven_flag:
+        # Cosine spaced radii spanning: RG == [Rhub_oR : 1]
+        RG = Rhub_oR + (1 - Rhub_oR) * np.sin(np.arange(Mp + 1) * np.pi / (2 * Mp))
+    else:
+        Mp = len(RG) - 1
+
+        if (RG[0] < Rhub_oR) or (RG[-1] > 1):
+            print('ERROR: geometry input radii out of bounds')
+            return {}
+
+    CL = pchip_interpolate(RC, pt['design']['CL'], RG)
+    BetaIG = pchip_interpolate(RC, BetaIC, RG)
+    TANBIG = pchip_interpolate(RC, TANBIC, RG)
+
+    # ----------------------------------------- Interpolate chord and thickness
+    if Chord_flag == 0:
+        # Chord optimization was NOT performed
+        if (abs(XR[-1] - 1) < 1e-4) and (XCoD[-1] <= 0.01):
+            CoD = InterpolateChord(XR, XCoD, RG)
+        else:
+            CoD = pchip_interpolate(XR, XCoD, RG)
+
+        t0oD = pchip_interpolate(XR, Xt0oD, RG)
+    else:
+        # Chord optimization WAS performed
+        if (Duct_flag == 0) or (Rduct_oR > 1.001):
+            CoD = InterpolateChord(RC, pt['design']['CoD'], RG)
+        else:
+            CoD = pchip_interpolate(RC, pt['design']['CoD'], RG)
+
+        t0oD = pchip_interpolate(RC, pt['design']['t0oD'], RG)
+
+    # -------- Thickness, rake, chord, and radius scaled for the model diameter
+    r = RG * Rm
+    c = CoD * Dm
+    t0 = t0oD * Dm
+    skew = pchip_interpolate(XR, skew0, RG)
+    rake = pchip_interpolate(XR, rake0, RG) * Dm
+
+    t0circ = t0[0]
+
+    # --------------------------------------------- Compute Expanded Area Ratio
+    RG_100 = np.linspace(Rhub_oR, 1, 100)
+    from scipy.interpolate import PchipInterpolator
+    CoD_100 = PchipInterpolator(RG, CoD, extrapolate=True)(RG_100)
+    from scipy.integrate import trapezoid
+    EAR = (2 * Z / np.pi) * trapezoid(CoD_100, RG_100)
+
+    # ---- Compute Blade Thickness Fraction
+    BTF = np.interp(0, RG, t0oD, left=t0oD[0], right=t0oD[-1])
+
+    # -------------------------------------------------------------------------
+    # ---------------------------------------- Lay out the 2D coordinate system
+    x0 = np.zeros(Np)
+    x1 = np.zeros((Mp + 1, Np))
+
+    for j in range(Np):
+        # Cosine spacing along the chord
+        x0[j] = 0.5 * (1 - np.cos(np.pi * j / (Np - 1)))
+
+    for i in range(Mp + 1):
+        if QuarterChord_flag == 1:
+            x1[i, :] = c[i] / 4 - c[i] * x0
+        else:
+            x1[i, :] = c[i] / 2 - c[i] * x0
+
+    # -------------------------------------------------------------------------
+    # ---------------------- Find normalized 2D foil geometry (at x0 positions)
+    if isinstance(Meanline, list):
+        # Meanline is given versus XR
+        f0octilde = np.zeros(len(XR))
+        CLItilde = np.zeros(len(XR))
+        alphaItilde = np.zeros(len(XR))
+        fof0_temp = np.zeros((len(XR), Np))
+        dfof0dxoc_temp = np.zeros((len(XR), Np))
+        tot0_temp = np.zeros((len(XR), Np))
+
+        for i in range(len(XR)):
+            result = GeometryFoil2D(Meanline[i], Thickness[i], x0)
+            f0octilde[i] = result[0]
+            CLItilde[i] = result[1]
+            alphaItilde[i] = result[2]
+            fof0_temp[i, :] = result[3]
+            dfof0dxoc_temp[i, :] = result[4]
+            tot0_temp[i, :] = result[5]
+
+        f0octilde = pchip_interpolate(XR, f0octilde, RG)
+        CLItilde = pchip_interpolate(XR, CLItilde, RG)
+        alphaItilde = pchip_interpolate(XR, alphaItilde, RG)
+
+        fof0 = np.zeros((Mp + 1, Np))
+        dfof0dxoc = np.zeros((Mp + 1, Np))
+        tot0 = np.zeros((Mp + 1, Np))
+
+        for j in range(Np):
+            fof0[:, j] = pchip_interpolate(XR, fof0_temp[:, j], RG)
+            dfof0dxoc[:, j] = pchip_interpolate(XR, dfof0dxoc_temp[:, j], RG)
+            tot0[:, j] = pchip_interpolate(XR, tot0_temp[:, j], RG)
+    else:
+        result = GeometryFoil2D(Meanline, Thickness, x0)
+        f0octilde = result[0]
+        CLItilde = result[1]
+        alphaItilde = result[2]
+        fof0_temp = result[3]
+        dfof0dxoc_temp = result[4]
+        tot0_temp = result[5]
+
+        fof0 = np.zeros((Mp + 1, Np))
+        dfof0dxoc = np.zeros((Mp + 1, Np))
+        tot0 = np.zeros((Mp + 1, Np))
+
+        for i in range(Mp + 1):
+            fof0[i, :] = fof0_temp
+            dfof0dxoc[i, :] = dfof0dxoc_temp
+            tot0[i, :] = tot0_temp
+
+    # ----- Scale camber ratio and ideal angle of attack by 2D lift coefficient
+    alphaI = alphaItilde * CL / CLItilde
+    f0oc = f0octilde * CL / CLItilde
+
+    # -------------------------------------------------------------------------
+    # Modify camber ratio and ideal angle of attack for 3D lifting surface effects
+    if LSGeoCorr == 'none':
+        pass  # no geometry corrections
+    elif LSGeoCorr == 'Morgan1968':
+        # Placeholder for Morgan1968 corrections
+        # [Kc, Ka, Kt] = Morgan1968(RG, TANBIG, EAR, Z)
+        pass
+    elif LSGeoCorr == 'EckhardtMorgan1955':
+        # Placeholder for EckhardtMorgan1955 corrections
+        # [K1K2] = EckhardtMorgan1955(EAR, RG, TANBIG)
+        pass
+
+    # ------------------ Find meanline and thickness profiles (at x1 positions)
+    t = np.zeros((Mp + 1, Np))
+    f = np.zeros((Mp + 1, Np))
+    dfdx = np.zeros((Mp + 1, Np))
+
+    for i in range(Mp + 1):
+        f[i, :] = fof0[i, :] * f0oc[i] * c[i]
+        dfdx[i, :] = dfof0dxoc[i, :] * f0oc[i]
+        t[i, :] = tot0[i, :] * t0[i]
+
+    # -------------------------------------------------------------------------
+    # ------------------------------------- Find 2D unrotated section profiles
+    x2D_u = np.zeros((Mp + 1, Np))
+    x2D_l = np.zeros((Mp + 1, Np))
+    y2D_u = np.zeros((Mp + 1, Np))
+    y2D_l = np.zeros((Mp + 1, Np))
+
+    for i in range(Mp + 1):
+        for j in range(Np):
+            x2D_u[i, j] = x1[i, j] + (t[i, j] / 2) * np.sin(np.arctan(dfdx[i, j]))
+            x2D_l[i, j] = x1[i, j] - (t[i, j] / 2) * np.sin(np.arctan(dfdx[i, j]))
+            y2D_u[i, j] = f[i, j] + (t[i, j] / 2) * np.cos(np.arctan(dfdx[i, j]))
+            y2D_l[i, j] = f[i, j] - (t[i, j] / 2) * np.cos(np.arctan(dfdx[i, j]))
+
+    # ----------------------------------------- Put all the numbers in one list
+    x2D = np.zeros((Mp + 1, 2 * Np))
+    y2D = np.zeros((Mp + 1, 2 * Np))
+
+    # Tail -> suction side -> nose, nose -> pressure side -> tail
+    x2D[:, :Np] = x2D_u[:, ::-1]
+    x2D[:, Np:] = x2D_l
+    y2D[:, :Np] = y2D_u[:, ::-1]
+    y2D[:, Np:] = y2D_l
+
+    # ---------------------------------------------- Find pitch angle and pitch
+    theta = BetaIG + alphaI
+    PoD = np.tan(np.deg2rad(theta)) * np.pi * RG
+    theta_Z = np.arange(0, 361, 360 / Z)
+
+    # --------------------------------------- Find 2D rotated section profiles
+    x2Dr = np.zeros((Mp + 1, 2 * Np))
+    y2Dr = np.zeros((Mp + 1, 2 * Np))
+
+    for i in range(Mp + 1):
+        x2Dr[i, :] = x2D[i, :] * np.cos(np.deg2rad(theta[i])) - y2D[i, :] * np.sin(np.deg2rad(theta[i]))
+        y2Dr[i, :] = x2D[i, :] * np.sin(np.deg2rad(theta[i])) + y2D[i, :] * np.cos(np.deg2rad(theta[i]))
+
+    # --------------------------- Invoke skew and rake, and find 3D coordinates
+    X3D = np.zeros((Mp + 1, 2 * Np, Z))
+    Y3D = np.zeros((Mp + 1, 2 * Np, Z))
+    Z3D = np.zeros((Mp + 1, 2 * Np, Z))
+
+    for i in range(Mp + 1):
+        for j in range(2 * Np):
+            for k in range(Z):
+                X3D[i, j, k] = -rake[i] - r[i] * (np.pi * skew[i] / 180) * np.tan(np.deg2rad(theta[i])) + y2Dr[i, j]
+                Y3D[i, j, k] = r[i] * np.sin(np.deg2rad(skew[i] - (180 / np.pi) * x2Dr[i, j] / r[i] - theta_Z[k]))
+                Z3D[i, j, k] = r[i] * np.cos(np.deg2rad(skew[i] - (180 / np.pi) * x2Dr[i, j] / r[i] - theta_Z[k]))
+
+    # --------------------- If left-hand screw, mirror Y3D coordinates
+    LeftHand_flag = 0
+    if LeftHand_flag == 1:
+        Y3D = -Y3D
+
+    # =========================================================================
+    # ============================ Pack up geometry data
+    t0oc = t0 / c
+
+    geometry = {
+        'Meanline': Meanline,
+        'Thickness': Thickness,
+        'Z': Z,
+        'D': D,
+        'Dhub': Dhub,
+        'EAR': EAR,
+        'BTF': BTF,
+        'RG': RG,
+        'CoD': CoD,
+        't0oD': t0oD,
+        't0oc': t0oc,
+        'f0oc': f0oc,
+        'BetaI': BetaIG,
+        'alpha': alphaI,
+        'theta': theta,
+        'PoD': PoD,
+        'skew': skew,
+        'rake': rake / D,
+        # Additional 3D geometry for plotting/export
+        'x2Dr': x2Dr,
+        'y2Dr': y2Dr,
+        'X3D': X3D,
+        'Y3D': Y3D,
+        'Z3D': Z3D,
+    }
+
+    # Add duct parameters to geometry dict if duct is present
+    if Duct_flag == 1:
+        geometry['Duct_flag'] = Duct_flag
+        geometry['Rduct'] = Rduct
+        geometry['Cduct'] = Cduct
+        geometry['Xduct'] = Xduct
+    
+    # =========================================================================
+    # ============================ Create plots and text outputs
+    
+    # ----------------------------------------- Create 2D Propeller Blade Image
+    if Make2Dplot_flag:
+        _make_2d_blade_image(RG, x2Dr, y2Dr)
+
+    # ----------------------------------------------- Create 3D Propeller Image
+    if Make3Dplot_flag:
+        _make_3d_propeller_image(geometry, Rhub, R)
+
+    # -------------------------------------------------------- Make text files
+    if Make_GeoText_flag:
+        _write_geometry_text(filename, Date_string, geometry, D, Z, N, Dhub, Meanline, Thickness, LSGeoCorr, Mp)
+
+    if Make_LaTeX_flag:
+        _write_latex_text(filename, Date_string, geometry, D, Z, N, Dhub, Vs, pt, Meanline, Thickness, LSGeoCorr, Mp)
+
+    return geometry
+
+
+def _make_2d_blade_image(RG, x2Dr, y2Dr):
+    """Create 2D blade cross-section image at selected radial stations.
+    
+    Matches the MATLAB implementation in Make_2D_Blade_Image.m
+    
+    Parameters
+    ----------
+    RG : array_like
+        Radial positions (r/R) where blade sections are computed
+    x2Dr : ndarray, shape (Mp+1, 2*Np)
+        Rotated x-coordinates of blade sections
+    y2Dr : ndarray, shape (Mp+1, 2*Np)
+        Rotated y-coordinates of blade sections
+    """
+    import matplotlib.pyplot as plt
+    
+    Mp = x2Dr.shape[0] - 1
+    Np = x2Dr.shape[1] // 2
+    
+    # Create figure
+    fig = plt.figure(figsize=(10, 6))
+    ax = fig.add_subplot(111)
+    
+    ax.set_aspect('equal')
+    ax.grid(True, alpha=0.3)
+    ax.set_title('2D Blade Image', fontsize=14)
+    ax.set_xlabel('X (2D) [m]', fontsize=12)
+    ax.set_ylabel('Y (2D) [m]', fontsize=12)
+    
+    # Color cycle for blade sections
+    colors = ['r', 'g', 'b', 'm', 'k']
+    
+    # Plot crosshairs through origin
+    x_min, x_max = np.min(x2Dr), np.max(x2Dr)
+    y_min, y_max = np.min(y2Dr), np.max(y2Dr)
+    ax.plot([x_min, x_max], [0, 0], 'k', linewidth=0.5)  # horizontal
+    ax.plot([0, 0], [y_min, y_max], 'k', linewidth=0.5)  # vertical
+    
+    flag = 0
+    handle_legend = []
+    str_legend = []
+    
+    # MATLAB: for i = 1:ceil(Mp/5):Mp
+    # This means: start at i=1 (Python index 0), step by ceil(Mp/5), end at Mp (inclusive)
+    step = max(1, int(np.ceil(Mp / 5)))
+    
+    # Build indices list: start at 0, step by 'step', up to Mp (excluding Mp itself)
+    indices = list(range(0, Mp, step))
+    
+    # Don't include the tip (r/R = 1.0)
+    # if Mp not in indices:
+    #     indices.append(Mp)
+    
+    for i in indices:
+        color = colors[flag % len(colors)]
+        
+        # Plot the blade section outline
+        handle = ax.plot(x2Dr[i, :], y2Dr[i, :], color, linewidth=2)[0]
+        handle_legend.append(handle)
+        
+        # Plot thickness line: midpoint of trailing edge to midpoint of leading edge
+        # Point arrangement: [0:Np-1] = tail->nose (suction), [Np:2*Np-1] = nose->tail (pressure)
+        # Trailing edge: j=0 (tail-suction) and j=2*Np-1 (tail-pressure)
+        # Leading edge: j=Np-1 (nose-suction) and j=Np (nose-pressure)
+        x_te = 0.5 * (x2Dr[i, 0] + x2Dr[i, 2*Np - 1])
+        y_te = 0.5 * (y2Dr[i, 0] + y2Dr[i, 2*Np - 1])
+        x_le = 0.5 * (x2Dr[i, Np - 1] + x2Dr[i, Np])
+        y_le = 0.5 * (y2Dr[i, Np - 1] + y2Dr[i, Np])
+        
+        ax.plot([x_te, x_le], [y_te, y_le], color, linewidth=1)
+        
+        str_legend.append(f'r/R = {RG[i]:.5g}')
+        
+        flag += 1
+    
+    ax.legend(handle_legend, str_legend, loc='upper left', fontsize=10)
+    
+    plt.tight_layout()
+    plt.show(block=False)
+
+
+def _make_3d_propeller_image(geometry, Rhub, R):
+    """Create 3D propeller image showing all blades and hub.
+    
+    Matches the MATLAB implementation in Make_3D_Propeller_Image.m
+    
+    Parameters
+    ----------
+    geometry : dict
+        Geometry dictionary containing X3D, Y3D, Z3D coordinate arrays
+    Rhub : float
+        Hub radius [m]
+    R : float
+        Propeller radius [m]
+    """
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d import Axes3D
+    
+    X3D = geometry['X3D']
+    Y3D = geometry['Y3D']
+    Z3D = geometry['Z3D']
+    Z_blades = geometry['Z']  # Number of blades
+    
+    Mp = X3D.shape[0] - 1
+    Np = X3D.shape[1] // 2
+    
+    # Create 3D figure
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection='3d')
+    
+    # Plot each blade as a surface
+    for k in range(Z_blades):
+        ax.plot_surface(X3D[:, :, k], Y3D[:, :, k], Z3D[:, :, k],
+                       color='coral', edgecolor='darkred', 
+                       linewidth=0.5, alpha=0.9, shade=True)
+    
+    # Create hub (cylinder with hemispherical ends)
+    hub_length = 2.5 * Rhub  # axial length of cylindrical section
+    n_circ = 30  # points around circumference
+    n_axial = 20  # points along axis
+    
+    theta = np.linspace(0, 2 * np.pi, n_circ)
+    
+    # Cylindrical section (middle)
+    x_cyl = np.linspace(-hub_length/2, hub_length/2, n_axial)
+    X_cyl, Theta_cyl = np.meshgrid(x_cyl, theta)
+    Y_cyl = Rhub * np.cos(Theta_cyl)
+    Z_cyl = Rhub * np.sin(Theta_cyl)
+    
+    ax.plot_surface(X_cyl, Y_cyl, Z_cyl, color='gray', alpha=0.7,
+                   edgecolor='darkgray', linewidth=0.3)
+    
+    # Left hemispherical cap (aft end, negative x)
+    phi_left = np.linspace(np.pi/2, np.pi, n_axial//2)
+    Theta_left, Phi_left = np.meshgrid(theta, phi_left)
+    X_left = -hub_length/2 + Rhub * np.cos(Phi_left)
+    Y_left = Rhub * np.sin(Phi_left) * np.cos(Theta_left)
+    Z_left = Rhub * np.sin(Phi_left) * np.sin(Theta_left)
+    
+    ax.plot_surface(X_left, Y_left, Z_left, color='gray', alpha=0.7,
+                   edgecolor='darkgray', linewidth=0.3)
+    
+    # Right hemispherical cap (forward end, positive x)
+    phi_right = np.linspace(0, np.pi/2, n_axial//2)
+    Theta_right, Phi_right = np.meshgrid(theta, phi_right)
+    X_right = hub_length/2 + Rhub * np.cos(Phi_right)
+    Y_right = Rhub * np.sin(Phi_right) * np.cos(Theta_right)
+    Z_right = Rhub * np.sin(Phi_right) * np.sin(Theta_right)
+    
+    ax.plot_surface(X_right, Y_right, Z_right, color='gray', alpha=0.7,
+                   edgecolor='darkgray', linewidth=0.3)
+    
+    # Check if duct is present and plot it
+    if 'Duct_flag' in geometry and geometry['Duct_flag'] == 1:
+        Rduct = geometry['Rduct']
+        Cduct = geometry['Cduct']
+        Xduct = geometry['Xduct']
+        
+        # Duct thickness (for visualization)
+        t_duct = 0.01 * R  # 1% of propeller radius
+        
+        # Create duct as a thick annular cylinder
+        # Outer surface
+        x_duct = np.linspace(Xduct - Cduct/2, Xduct + Cduct/2, 30)
+        theta_duct = np.linspace(0, 2*np.pi, 50)
+        X_duct, Theta_duct = np.meshgrid(x_duct, theta_duct)
+        Y_duct_outer = Rduct * np.cos(Theta_duct)
+        Z_duct_outer = Rduct * np.sin(Theta_duct)
+        
+        # Inner surface
+        Y_duct_inner = (Rduct - t_duct) * np.cos(Theta_duct)
+        Z_duct_inner = (Rduct - t_duct) * np.sin(Theta_duct)
+        
+        # Plot duct surfaces
+        ax.plot_surface(X_duct, Y_duct_outer, Z_duct_outer, 
+                       color='lightblue', alpha=0.3, edgecolor='blue', linewidth=0.3)
+        ax.plot_surface(X_duct, Y_duct_inner, Z_duct_inner, 
+                       color='lightblue', alpha=0.3, edgecolor='blue', linewidth=0.3)
+        
+        # Leading edge ring
+        x_le = np.full_like(theta_duct, Xduct - Cduct/2)
+        r_ring = np.linspace(Rduct - t_duct, Rduct, 5)
+        Theta_ring, R_ring = np.meshgrid(theta_duct, r_ring)
+        X_ring_le = x_le
+        Y_ring_le = R_ring * np.cos(Theta_ring)
+        Z_ring_le = R_ring * np.sin(Theta_ring)
+        ax.plot_surface(X_ring_le, Y_ring_le, Z_ring_le,
+                       color='lightblue', alpha=0.3, edgecolor='blue', linewidth=0.2)
+        
+        # Trailing edge ring
+        X_ring_te = np.full_like(X_ring_le, Xduct + Cduct/2)
+        ax.plot_surface(X_ring_te, Y_ring_le, Z_ring_le,
+                       color='lightblue', alpha=0.3, edgecolor='blue', linewidth=0.2)
+    
+    # Plot rotation axis (green line along x-axis)
+    axis_length = 1.2 * R
+    ax.plot([0, axis_length], [0, 0], [0, 0], 'g-', linewidth=3)
+    
+    # Set equal aspect ratio and limits
+    max_range = R * 1.3 if 'Duct_flag' in geometry and geometry['Duct_flag'] == 1 else R * 1.1
+    ax.set_xlim([-max_range, max_range])
+    ax.set_ylim([-max_range, max_range])
+    ax.set_zlim([-max_range, max_range])
+    
+    # Set aspect ratio to equal
+    ax.set_box_aspect([1, 1, 1])
+    
+    # Labels and title
+    ax.set_xlabel('X [m]', fontsize=10)
+    ax.set_ylabel('Y [m]', fontsize=10)
+    ax.set_zlabel('Z [m]', fontsize=10)
+    title = 'Ducted Propeller Image' if 'Duct_flag' in geometry and geometry['Duct_flag'] == 1 else 'Propeller Image'
+    ax.set_title(title, fontsize=14)
+    
+    # Set viewing angle (similar to MATLAB default)
+    ax.view_init(elev=20, azim=45)
+    
+    # Enable rotation with mouse
+    plt.tight_layout()
+    plt.show(block=False)
+def _write_geometry_text(filename, Date_string, geometry, D, Z, N, Dhub, Meanline, Thickness, LSGeoCorr, Mp):
+    """Write propeller geometry to a text file.
+    
+    Ports the Make_GeoText_flag section from MATLAB Geometry.m
+    
+    Parameters
+    ----------
+    filename : str
+        Base filename for output
+    Date_string : str
+        Date/time string for the report header
+    geometry : dict
+        Geometry dictionary containing design parameters
+    D : float
+        Propeller diameter [m]
+    Z : int
+        Number of blades
+    N : float
+        Propeller speed [RPM]
+    Dhub : float
+        Hub diameter [m]
+    Meanline : str or list
+        Meanline type(s)
+    Thickness : str or int or list
+        Thickness type(s)
+    LSGeoCorr : str
+        Lifting surface geometry correction type
+    Mp : int
+        Number of radial panels
+    """
+    filename_geometry = f'{filename}_Geometry.txt'
+    
+    with open(filename_geometry, 'w') as fid:
+        fid.write(f'\t\t {filename_geometry} \n\n')
+        fid.write('\t\t Propeller Geometry Table\n\n')
+        fid.write(f'Date and time: {Date_string}\n\n')
+        
+        fid.write(f'Propeller Diameter \t = {D:.4f} m\n')
+        fid.write(f'Number of Blades   \t = {Z:.0f}\n')
+        fid.write(f'Propeller Speed \t = {N:.0f} RPM\n')
+        fid.write(f'Propeller Hub Diameter \t = {Dhub:.4f} m\n')
+        
+        if isinstance(Meanline, list):
+            fid.write('Meanline  Type: ')
+            for m in Meanline:
+                fid.write(f'{m}, ')
+            fid.write('\n')
+            
+            fid.write('Thickness  Type: ')
+            for t in Thickness:
+                fid.write(f'{t}, ')
+            fid.write('\n')
+        else:
+            fid.write(f'Meanline  Type: {Meanline}\n')
+            fid.write(f'Thickness Type: {Thickness}\n')
+        
+        fid.write(f'Lifting Surface Geometry Corrections: {LSGeoCorr}\n')
+        fid.write(' \n')
+        fid.write(' \n')
+        
+        fid.write(' r/R\t  c/D\t  t0/c\t   f0/c\t P/D\t pitch\t skew \t rake/D\n')
+        fid.write('    \t     \t      \t       \t    \t (deg)\t (deg)\t       \n')
+        
+        RG = geometry['RG']
+        CoD = geometry['CoD']
+        t0oc = geometry['t0oc']
+        f0oc = geometry['f0oc']
+        PoD = geometry['PoD']
+        theta = geometry['theta']
+        skew = geometry['skew']
+        rake = geometry['rake']
+        
+        for i in range(Mp + 1):
+            fid.write(f'{RG[i]:5.4f}  {CoD[i]:5.4f}  {t0oc[i]:5.4f}  {f0oc[i]:5.4f}  '
+                     f'{PoD[i]:5.4f}  {theta[i]:7.4f}  {skew[i]:5.4f}  {rake[i]:5.4f}\n')
+        
+        fid.write(' \n\n')
+        fid.write('r/R  \t [ ], radial position / propeller radius \n')
+        fid.write('c/D  \t [ ], chord length    / propeller diameter \n')
+        fid.write('P/D  \t [ ], pitch           / propeller diameter \n')
+        fid.write('fo/C \t [ ], max camber      / chord length \n')
+        fid.write('to/C \t [ ], max thickness   / chord length \n')
+
+
+def _write_latex_text(filename, Date_string, geometry, D, Z, N, Dhub, Vs, pt, Meanline, Thickness, LSGeoCorr, Mp):
+    """Write propeller geometry to a LaTeX-formatted text file.
+    
+    Ports the Make_LaTeX_flag section from MATLAB Geometry.m
+    
+    Parameters
+    ----------
+    filename : str
+        Base filename for output
+    Date_string : str
+        Date/time string for the report header
+    geometry : dict
+        Geometry dictionary containing design parameters
+    D : float
+        Propeller diameter [m]
+    Z : int
+        Number of blades
+    N : float
+        Propeller speed [RPM]
+    Dhub : float
+        Hub diameter [m]
+    Vs : float
+        Ship speed [m/s]
+    pt : dict
+        Propeller/turbine data structure
+    Meanline : str or list
+        Meanline type(s)
+    Thickness : str or int or list
+        Thickness type(s)
+    LSGeoCorr : str
+        Lifting surface geometry correction type
+    Mp : int
+        Number of radial panels
+    """
+    filename_latex = f'{filename}_LaTeX.txt'
+    
+    with open(filename_latex, 'w') as fid:
+        fid.write(f'\t\t {filename_latex} \n\n')
+        fid.write('\t\t Propeller Geometry Table for LaTeX\n\n')
+        fid.write(f'Date and time: {Date_string}\n\n')
+        
+        if isinstance(Meanline, list):
+            fid.write('Meanline  Type: ')
+            for m in Meanline:
+                fid.write(f'{m}, ')
+            fid.write('\n')
+            
+            fid.write('Thickness  Type: ')
+            for t in Thickness:
+                fid.write(f'{t}, ')
+            fid.write('\n')
+        else:
+            fid.write(f'Meanline  Type: {Meanline}\n')
+            fid.write(f'Thickness Type: {Thickness}\n')
+        
+        fid.write(f'Lifting Surface Geometry Corrections: {LSGeoCorr}\n')
+        fid.write(' \n')
+        fid.write(' \n')
+        
+        fid.write('\\begin{table}[t!] \n')
+        fid.write('\\begin{center} \n')
+        fid.write('\\begin{tabular}{|c|c|l|} \n')
+        fid.write('\\hline \n')
+        fid.write('Parameter          & Value             & Description          \\\\ \\hline  \n')
+        fid.write(f'${{\\cal Z}}$       \t& {Z:i}                & number of blades     \\\\ \\hline  \n')
+        fid.write(f'$D$        \t\t& {D:7.4f} m\t\t\t& diameter             \\\\ \\hline  \n')
+        fid.write(f'$D_\\text{{hub}}$    & {Dhub:7.4f} m\t\t\t& hub diameter         \\\\ \\hline  \n')
+        fid.write(f'$N$                & {N:7.4f} RPM         & rotation rate        \\\\ \\hline  \n')
+        fid.write(f'$V_s$              & {Vs:7.4f} m/s\t    & ship speed           \\\\ \\hline  \n')
+        fid.write(f'$KT$               & {pt["design"]["KT"]:7.4f}       \t    & thrust coefficient   \\\\ \\hline  \n')
+        fid.write(f'$M$                & {Mp:i}                & number of  panels    \\\\ \\hline  \n')
+        fid.write('\\end{tabular}  \n')
+        fid.write('\\caption{Propeller design parameters.}  \n')
+        fid.write('\\label{tab:propspecs}  \n')
+        fid.write('\\end{center}  \n')
+        fid.write('\\end{table}  \n')
+        
+        fid.write(' \n')
+        fid.write(' \n')
+        
+        fid.write('\\begin{table}[t!] \n')
+        fid.write('\\begin{center} \n')
+        fid.write('\\begin{tabular}{|c|c|l|} \n')
+        fid.write('\\hline \n')
+        fid.write(' r/R &  c/D &  t0/c &   f0/c & P/D & pitch & skew  & rake/D   \\\\ \\hline \n')
+        fid.write('     &      &       &        &     & (deg) & (deg) &          \\\\ \\hline \n')
+        
+        RG = geometry['RG']
+        CoD = geometry['CoD']
+        t0oc = geometry['t0oc']
+        f0oc = geometry['f0oc']
+        PoD = geometry['PoD']
+        theta = geometry['theta']
+        skew = geometry['skew']
+        rake = geometry['rake']
+        
+        for i in range(Mp + 1):
+            fid.write(f'{RG[i]:6.4f} &  {CoD[i]:6.4f} &  {t0oc[i]:6.4f} &  {f0oc[i]:6.4f} &  '
+                     f'{PoD[i]:6.4f} &  {theta[i]:7.4f} &  {skew[i]:6.4f} &  {rake[i]:6.4f}\n')
+        
+        fid.write('\\caption{Propeller geometry.}  \n')
+        fid.write('\\label{tab:propgeometry}  \n')
+        fid.write('\\end{center}  \n')
+        fid.write('\\end{table}  \n')

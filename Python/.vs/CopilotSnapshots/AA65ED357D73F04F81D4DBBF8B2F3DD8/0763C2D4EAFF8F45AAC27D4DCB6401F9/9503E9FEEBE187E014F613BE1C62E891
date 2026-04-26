@@ -1,0 +1,322 @@
+﻿"""
+Test suite for Forces.py
+Verifies thrust, torque, power coefficients and efficiency calculations.
+"""
+
+import numpy as np
+from Forces import Forces
+
+
+print("=" * 70)
+print("Forces.py Test Suite")
+print("=" * 70)
+
+
+# ============================================================================
+# TEST 1: Basic propeller without hub or duct
+# ============================================================================
+print("\nTEST 1: Basic propeller (no hub, no duct)")
+print("-" * 70)
+
+try:
+    Mp = 10
+    RC = np.linspace(0.3, 1.0, Mp)
+    DR = np.diff(np.linspace(0.25, 1.0, Mp + 1))
+    
+    # Simple uniform inflow
+    VAC = np.ones(Mp) * 1.0
+    VTC = np.zeros(Mp)
+    
+    # Typical induced velocities
+    UASTAR = np.linspace(-0.1, -0.05, Mp)  # Negative (slowing the flow)
+    UTSTAR = np.linspace(0.05, 0.1, Mp)     # Positive (swirl)
+    UADUCT = np.zeros(Mp)
+    
+    # Section properties
+    CD = 0.01 * np.ones(Mp)  # Low drag
+    CoD = 0.2 * np.ones(Mp)  # 20% chord-to-diameter ratio
+    G = np.linspace(0.05, 0.02, Mp)  # Decreasing circulation
+    
+    Z = 4
+    Js = 0.8
+    VMIV = 1.0
+    Hub_flag = 0
+    Rhub_oR = 0.2
+    Rhv = 1.0
+    CTD = 0.0
+    
+    CT, CQ, CP, KT, KQ, CTH, TAU, Ja, Jw, VMWV, EFFYo, EFFY, ADEFFY, QF, QFo, QFw = \
+        Forces(RC, DR, VAC, VTC, UASTAR, UTSTAR, UADUCT, CD, CoD, G,
+               Z, Js, VMIV, Hub_flag, Rhub_oR, Rhv, CTD)
+    
+    print(f"  CT  = {CT:.6f}  (thrust coefficient)")
+    print(f"  CQ  = {CQ:.6f}  (torque coefficient)")
+    print(f"  CP  = {CP:.6f}  (power coefficient)")
+    print(f"  KT  = {KT:.6f}  (thrust coefficient, alternate)")
+    print(f"  KQ  = {KQ:.6f}  (torque coefficient, alternate)")
+    print(f"  CTH = {CTH:.6f}  (hub thrust, should be 0)")
+    print(f"  TAU = {TAU:.6f}  (thrust ratio)")
+    print(f"  Ja  = {Ja:.6f}  (inflow-adapted J)")
+    print(f"  Jw  = {Jw:.6f}  (wake-adapted J)")
+    print(f"  VMWV = {VMWV:.6f}  (volumetric mean wake velocity)")
+    print(f"  EFFYo = {EFFYo:.6f}  (open-water efficiency)")
+    print(f"  EFFY  = {EFFY:.6f}  (inflow-adapted efficiency)")
+    print(f"  ADEFFY = {ADEFFY:.6f}  (actuator disk efficiency)")
+    print(f"  QF  = {QF:.6f}  (quality factor)")
+    print(f"  QFo = {QFo:.6f}  (open-water quality factor)")
+    print(f"  QFw = {QFw:.6f}  (wake-adapted quality factor)")
+    
+    # Sanity checks
+    assert CT > 0, "Thrust should be positive"
+    assert CQ > 0, "Torque should be positive"
+    assert CP > 0, "Power should be positive"
+    assert CTH == 0, "Hub thrust should be zero when Hub_flag=0"
+    assert 0 < TAU <= 1, "Thrust ratio should be between 0 and 1"
+    assert 0 < EFFYo < 1, "Efficiency should be between 0 and 1"
+    assert np.isfinite(VMWV), "VMWV should be finite"
+    
+    print("  ✓ OK - Basic propeller test PASS")
+    
+except Exception as e:
+    print(f"  ✗ FAIL - {e}")
+
+
+# ============================================================================
+# TEST 2: Propeller with hub image effect
+# ============================================================================
+print("\nTEST 2: Propeller with hub image")
+print("-" * 70)
+
+try:
+    CT_no_hub, CQ_no_hub, CP_no_hub, KT_no_hub, KQ_no_hub, \
+    CTH_no_hub, TAU_no_hub, Ja_no_hub, Jw_no_hub, VMWV_no_hub, \
+    EFFYo_no_hub, EFFY_no_hub, ADEFFY_no_hub, QF_no_hub, QFo_no_hub, QFw_no_hub = \
+        Forces(RC, DR, VAC, VTC, UASTAR, UTSTAR, UADUCT, CD, CoD, G,
+               Z, Js, VMIV, 0, Rhub_oR, Rhv, CTD)
+    
+    CT_with_hub, CQ_with_hub, CP_with_hub, KT_with_hub, KQ_with_hub, \
+    CTH_with_hub, TAU_with_hub, Ja_with_hub, Jw_with_hub, VMWV_with_hub, \
+    EFFYo_with_hub, EFFY_with_hub, ADEFFY_with_hub, QF_with_hub, QFo_with_hub, QFw_with_hub = \
+        Forces(RC, DR, VAC, VTC, UASTAR, UTSTAR, UADUCT, CD, CoD, G,
+               Z, Js, VMIV, 1, Rhub_oR, Rhv, CTD)
+    
+    print(f"  Without hub: CT={CT_no_hub:.6f}, CTH={CTH_no_hub:.6f}")
+    print(f"  With hub:    CT={CT_with_hub:.6f}, CTH={CTH_with_hub:.6f}")
+    print(f"  Hub drag effect: ΔCT={CT_with_hub - CT_no_hub:.6f}")
+    
+    assert CTH_no_hub == 0, "CTH should be zero without hub"
+    assert CTH_with_hub < 0, "CTH should be negative (hub drag)"
+    assert CT_with_hub < CT_no_hub, "Total thrust should decrease with hub drag"
+    
+    print("  ✓ OK - Hub image test PASS")
+    
+except Exception as e:
+    print(f"  ✗ FAIL - {e}")
+
+
+# ============================================================================
+# TEST 3: Ducted propeller (with duct thrust)
+# ============================================================================
+print("\nTEST 3: Ducted propeller")
+print("-" * 70)
+
+try:
+    CTD_duct = 0.15  # Duct provides additional thrust
+    
+    # Duct induces axial velocity
+    UADUCT_duct = 0.05 * np.ones(Mp)
+    
+    CT_duct, CQ_duct, CP_duct, KT_duct, KQ_duct, \
+    CTH_duct, TAU_duct, Ja_duct, Jw_duct, VMWV_duct, \
+    EFFYo_duct, EFFY_duct, ADEFFY_duct, QF_duct, QFo_duct, QFw_duct = \
+        Forces(RC, DR, VAC, VTC, UASTAR, UTSTAR, UADUCT_duct, CD, CoD, G,
+               Z, Js, VMIV, 1, Rhub_oR, Rhv, CTD_duct)
+    
+    print(f"  CT total = {CT_duct:.6f}")
+    print(f"  CTD (duct contribution) = {CTD_duct:.6f}")
+    print(f"  TAU (rotor/total thrust) = {TAU_duct:.6f}")
+    print(f"  VMWV = {VMWV_duct:.6f} (should be higher due to duct)")
+    
+    assert CT_duct > CTD_duct, "Total thrust should exceed duct thrust"
+    assert 0 < TAU_duct < 1, "Thrust ratio should be between 0 and 1"
+    assert VMWV_duct > VMWV, "Wake velocity should increase with duct"
+    
+    print("  ✓ OK - Ducted propeller test PASS")
+    
+except Exception as e:
+    print(f"  ✗ FAIL - {e}")
+
+
+# ============================================================================
+# TEST 4: Verify coefficient relationships
+# ============================================================================
+print("\nTEST 4: Coefficient relationships")
+print("-" * 70)
+
+try:
+    # Use results from Test 1
+    # Verify KT = CT * Js^2 * pi / 8
+    KT_expected = CT * Js ** 2 * np.pi / 8.0
+    KQ_expected = CQ * Js ** 2 * np.pi / 16.0
+    CP_expected = CQ * np.pi / Js
+    Ja_expected = Js * VMIV
+    Jw_expected = Js * VMWV
+    
+    print(f"  KT: computed={KT:.6f}, expected={KT_expected:.6f}")
+    print(f"  KQ: computed={KQ:.6f}, expected={KQ_expected:.6f}")
+    print(f"  CP: computed={CP:.6f}, expected={CP_expected:.6f}")
+    print(f"  Ja: computed={Ja:.6f}, expected={Ja_expected:.6f}")
+    print(f"  Jw: computed={Jw:.6f}, expected={Jw_expected:.6f}")
+    
+    assert np.isclose(KT, KT_expected, rtol=1e-10), "KT formula mismatch"
+    assert np.isclose(KQ, KQ_expected, rtol=1e-10), "KQ formula mismatch"
+    assert np.isclose(CP, CP_expected, rtol=1e-10), "CP formula mismatch"
+    assert np.isclose(Ja, Ja_expected, rtol=1e-10), "Ja formula mismatch"
+    assert np.isclose(Jw, Jw_expected, rtol=1e-10), "Jw formula mismatch"
+    
+    print("  ✓ OK - Coefficient relationships verified")
+    
+except Exception as e:
+    print(f"  ✗ FAIL - {e}")
+
+
+# ============================================================================
+# TEST 5: Efficiency and quality factor relationships
+# ============================================================================
+print("\nTEST 5: Efficiency and quality factor relationships")
+print("-" * 70)
+
+try:
+    # Verify EFFYo = CT / CP
+    EFFYo_expected = CT / CP if CP != 0 else 0
+    EFFY_expected = EFFYo * VMIV
+    
+    # Verify actuator disk efficiency formula
+    ADEFo_expected = 2.0 * Js / (Js + np.sqrt(Js ** 2 + TAU * (8.0 / np.pi) * KT))
+    ADEFFY_expected = 2.0 * Ja / (Ja + np.sqrt(Ja ** 2 + TAU * (8.0 / np.pi) * KT))
+    
+    # Verify quality factor = EFFY / ADEF
+    QFo_expected = (1.0 / (4.0 * np.pi)) * (KT / KQ) * (Js + np.sqrt(Js ** 2 + TAU * (8.0 / np.pi) * KT))
+    QF_expected = (1.0 / (4.0 * np.pi)) * (KT / KQ) * (Ja + np.sqrt(Ja ** 2 + TAU * (8.0 / np.pi) * KT))
+    
+    print(f"  EFFYo: computed={EFFYo:.6f}, expected={EFFYo_expected:.6f}")
+    print(f"  EFFY:  computed={EFFY:.6f}, expected={EFFY_expected:.6f}")
+    print(f"  ADEFo:  computed={ADEFo:.6f}, expected={ADEFo_expected:.6f}")
+    print(f"  ADEFFY: computed={ADEFFY:.6f}, expected={ADEFFY_expected:.6f}")
+    print(f"  QFo: computed={QFo:.6f}, expected={QFo_expected:.6f}")
+    print(f"  QF:  computed={QF:.6f}, expected={QF_expected:.6f}")
+    
+    assert np.isclose(EFFYo, EFFYo_expected, rtol=1e-10), "EFFYo formula mismatch"
+    assert np.isclose(EFFY, EFFY_expected, rtol=1e-10), "EFFY formula mismatch"
+    assert np.isclose(ADEFo, ADEFo_expected, rtol=1e-10), "ADEFo formula mismatch"
+    assert np.isclose(ADEFFY, ADEFFY_expected, rtol=1e-10), "ADEFFY formula mismatch"
+    assert np.isclose(QFo, QFo_expected, rtol=1e-10), "QFo formula mismatch"
+    assert np.isclose(QF, QF_expected, rtol=1e-10), "QF formula mismatch"
+    
+    # Additional relationship: QF should approximately equal EFFY/ADEFFY
+    QF_from_ratio = EFFYo / ADEFo if ADEFo != 0 else 0
+    print(f"\n  QFo from ratio EFFYo/ADEFo: {QF_from_ratio:.6f}")
+    print(f"  QFo from formula: {QFo:.6f}")
+    assert np.isclose(QFo, QF_from_ratio, rtol=1e-6), "QF should equal EFFY/ADEF"
+    
+    print("  ✓ OK - Efficiency relationships verified")
+    
+except Exception as e:
+    print(f"  ✗ FAIL - {e}")
+
+
+# ============================================================================
+# TEST 6: Volumetric mean wake velocity calculation
+# ============================================================================
+print("\nTEST 6: Volumetric mean wake velocity")
+print("-" * 70)
+
+try:
+    # Test with uniform wake (should equal input)
+    VAC_uniform = np.ones(Mp)
+    UASTAR_uniform = np.zeros(Mp)
+    UADUCT_uniform = np.zeros(Mp)
+    
+    _, _, _, _, _, _, _, _, _, VMWV_uniform, _, _, _, _, _, _ = \
+        Forces(RC, DR, VAC_uniform, VTC, UASTAR_uniform, UTSTAR, UADUCT_uniform, 
+               CD, CoD, G, Z, Js, VMIV, 0, Rhub_oR, Rhv, 0.0)
+    
+    print(f"  Uniform wake input: VAC=1.0")
+    print(f"  VMWV computed: {VMWV_uniform:.6f}")
+    print(f"  Expected: ~1.0")
+    
+    assert np.isclose(VMWV_uniform, 1.0, rtol=0.01), "VMWV should equal 1.0 for uniform wake"
+    
+    # Test with linearly varying wake
+    VAC_linear = np.linspace(0.8, 1.2, Mp)
+    _, _, _, _, _, _, _, _, _, VMWV_linear, _, _, _, _, _, _ = \
+        Forces(RC, DR, VAC_linear, VTC, UASTAR_uniform, UTSTAR, UADUCT_uniform,
+               CD, CoD, G, Z, Js, VMIV, 0, Rhub_oR, Rhv, 0.0)
+    
+    print(f"\n  Linear wake: VAC from 0.8 to 1.2")
+    print(f"  VMWV computed: {VMWV_linear:.6f}")
+    print(f"  Expected: ~1.0 (by symmetry)")
+    
+    print("  ✓ OK - VMWV calculation verified")
+    
+except Exception as e:
+    print(f"  ✗ FAIL - {e}")
+
+
+# ============================================================================
+# TEST 7: Edge cases and robustness
+# ============================================================================
+print("\nTEST 7: Edge cases")
+print("-" * 70)
+
+try:
+    # Test with zero circulation (no thrust/torque)
+    G_zero = np.zeros(Mp)
+    CT_zero, CQ_zero, CP_zero, _, _, _, _, _, _, _, _, _, _, _, _, _ = \
+        Forces(RC, DR, VAC, VTC, UASTAR, UTSTAR, UADUCT, CD, CoD, G_zero,
+               Z, Js, VMIV, 0, Rhub_oR, Rhv, 0.0)
+    
+    print(f"  Zero circulation: CT={CT_zero:.6f}, CQ={CQ_zero:.6f}")
+    
+    # Test with very high advance coefficient
+    Js_high = 2.0
+    CT_high_J, CQ_high_J, CP_high_J, _, _, _, _, _, _, _, EFFYo_high_J, _, _, _, _, _ = \
+        Forces(RC, DR, VAC, VTC, UASTAR, UTSTAR, UADUCT, CD, CoD, G,
+               Z, Js_high, VMIV, 0, Rhub_oR, Rhv, 0.0)
+    
+    print(f"  High J (2.0): CT={CT_high_J:.6f}, EFFYo={EFFYo_high_J:.6f}")
+    
+    # Test with low advance coefficient
+    Js_low = 0.3
+    CT_low_J, CQ_low_J, CP_low_J, _, _, _, _, _, _, _, EFFYo_low_J, _, _, _, _, _ = \
+        Forces(RC, DR, VAC, VTC, UASTAR, UTSTAR, UADUCT, CD, CoD, G,
+               Z, Js_low, VMIV, 0, Rhub_oR, Rhv, 0.0)
+    
+    print(f"  Low J (0.3): CT={CT_low_J:.6f}, EFFYo={EFFYo_low_J:.6f}")
+    
+    # All should be finite
+    assert np.isfinite(CT_zero) and np.isfinite(CQ_zero), "Should handle zero circulation"
+    assert np.isfinite(EFFYo_high_J), "Should handle high J"
+    assert np.isfinite(EFFYo_low_J), "Should handle low J"
+    
+    print("  ✓ OK - Edge cases handled")
+    
+except Exception as e:
+    print(f"  ✗ FAIL - {e}")
+
+
+# ============================================================================
+# Summary
+# ============================================================================
+print("\n" + "=" * 70)
+print("ALL TESTS COMPLETED")
+print("=" * 70)
+print("\nForces.py Implementation Summary:")
+print("  - Computes thrust, torque, power coefficients")
+print("  - Handles hub image effects (Kerwin formulation)")
+print("  - Computes duct thrust contribution")
+print("  - Calculates volumetric mean wake velocity")
+print("  - Determines efficiency and quality factors")
+print("  - Returns 16 performance parameters")
+print("\nCompatible with MATLAB OpenProp v3.3.4")
+print("=" * 70)

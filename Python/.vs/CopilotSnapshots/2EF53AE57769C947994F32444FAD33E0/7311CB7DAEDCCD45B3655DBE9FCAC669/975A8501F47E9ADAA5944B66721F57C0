@@ -1,4 +1,4 @@
-# Port target: Examples/Edited_Ducted_Propeller/Ducted_Prop_usage_script.m
+﻿# Port target: Examples/Edited_Ducted_Propeller/Ducted_Prop_usage_script.m
 """Ducted propeller design example — Python port.
 
 Ported from: Edited_Ducted_Propeller/Ducted_Prop_usage_script.m
@@ -15,8 +15,6 @@ or import and call :func:`run` programmatically.
 import sys
 import os
 import numpy as np
-import matplotlib
-import matplotlib.pyplot as plt
 
 # Allow imports from Python/SourceCode when running the script directly
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -29,7 +27,6 @@ from EppsOptimizer import EppsOptimizer
 from Make_Reports import Make_Reports
 from Geometry import Geometry
 from Analyze import Analyze
-from export_blade import export_blade_geometry
 
 
 def run(plot=True):
@@ -47,10 +44,6 @@ def run(plot=True):
         Fully populated propeller/turbine data structure after design,
         geometry, and off-design analysis.
     """
-    # Set matplotlib to interactive mode to prevent blocking
-    if plot:
-        plt.ion()
-    
     # ----------------------------------------------------------------- Inputs
     inp, pt = build_input()
     pt["input"]["Plot_flag"] = 1  # suppress plots by default (matches MATLAB script)
@@ -72,15 +65,16 @@ def run(plot=True):
     pt["states"] = Analyze(pt, LAMBDAall)
 
     if plot:
+        import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
-        ax.plot(pt["states"]["Js"], pt["states"]["KT"],        ".-b", label="KT")
-        ax.plot(pt["states"]["Js"], 10 * pt["states"]["KQ"],   ".-r", label="10KQ")
-        ax.plot(pt["states"]["Js"], pt["states"]["EFFY"],      ".-g", label="EFFY")
+        ax.plot(pt["states"]["Js"], pt["states"]["KT"],   ".-b", label="KT")
+        ax.plot(pt["states"]["Js"], pt["states"]["KQ"],   ".-r", label="10KQ")
+        ax.plot(pt["states"]["Js"], pt["states"]["EFFY"], ".-g", label="EFFY")
         ax.set_xlabel("Js")
         ax.set_ylabel("KT, 10*KQ, EFFY")
         ax.legend()
         plt.tight_layout()
-        plt.draw()
+        plt.show()
 
     return pt
 
@@ -88,10 +82,4 @@ def run(plot=True):
 if __name__ == "__main__":
     pt = run(plot=True)
     print("Done.")
-    
-    # Turn off interactive mode and show all plots (blocking)
-    plt.ioff()
-    plt.show()
-
-    files = export_blade_geometry(pt, output_dir="output", formats=['step', 'stl', 'csv'])
 
