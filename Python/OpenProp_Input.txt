@@ -2,7 +2,7 @@
 
 					 OpenProp Input Table
 
-Date and time: 2026-04-25 19:30:22
+Date and time: 2026-04-28 22:56:30
 
 20 	Number of Vortex Panels over the Radius
 1 	Hub Image Flag: 1=YES, 0=NO

@@ -43,7 +43,7 @@ def build_input():
 
     # --------------------------------------------- Blade 2-D section properties
     Meanline  = "NACA a=0.8"   # meanline type
-    Thickness = 2               # thickness form (2 == elliptical)
+    Thickness = 1               # thickness form (1 == NACA 65A010, 2 == elliptical, 3 == parabolic)
 
     XR    = np.array([0.15,    0.3,    0.4,    0.5,    0.6,    0.7,    0.8,    0.9,    0.95,  1.0])
     XCoD  = np.array([0.1600, 0.1818, 0.2024, 0.2196, 0.2305, 0.2311, 0.2173, 0.1806, 0.1387, 0.0010])
@@ -60,7 +60,7 @@ def build_input():
     Hub_flag       = 1  # 0 == no hub, 1 == hub
     Duct_flag      = 1  # 0 == no duct, 1 == duct
     Plot_flag      = 1  # 0 == do not display plots, 1 == display plots
-    Chord_flag     = 1  # 0 == do not optimize chord lengths, 1 == optimize chord lengths
+    Chord_flag     = 0  # 0 == do not optimize chord lengths, 1 == optimize chord lengths
 
     # ---------------------------------------------- Compute derived quantities
     n        = N / 60                              # revolutions per second [rps]

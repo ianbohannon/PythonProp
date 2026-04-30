@@ -122,8 +122,6 @@ def export_to_step(X3D, Y3D, Z3D, filename, num_blades=1):
         from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeFace
         from OCP.STEPControl import STEPControl_Writer, STEPControl_AsIs
         from OCP.IFSelect import IFSelect_RetDone
-        from OCP.gp import gp_Trsf, gp_Ax1, gp_Dir
-        from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
         use_ocp = True
     except ImportError:
         try:

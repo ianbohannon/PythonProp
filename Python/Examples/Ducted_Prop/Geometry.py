@@ -151,7 +151,8 @@ def Geometry(pt, RG=None):
     # Design variables
     RC = pt['design']['RC']
     RV = pt['design']['RV']
-    G = pt['design']['G'].T if isinstance(pt['design']['G'], np.ndarray) and pt['design']['G'].ndim > 1 else pt['design']['G']
+    # Always transpose G like MATLAB does: G = pt.design.G'
+    G = pt['design']['G'].T if pt['design']['G'].ndim > 1 else pt['design']['G']
     CL = pt['design']['CL']
     TANBIC = pt['design']['TANBIC']
     BetaIC = np.rad2deg(np.arctan(pt['design']['TANBIC']))
@@ -280,8 +281,9 @@ def Geometry(pt, RG=None):
     from scipy.integrate import trapezoid
     EAR = (2 * Z / np.pi) * trapezoid(CoD_100, RG_100)
 
-    # ---- Compute Blade Thickness Fraction
-    BTF = np.interp(0, RG, t0oD, left=t0oD[0], right=t0oD[-1])
+    # ---- Compute Blade Thickness Fraction (BTF = t0oD at the prop centerline r/R=0)
+    # MATLAB: BTF = interp1(RG,t0oD,0,'linear','extrap');
+    BTF = np.interp(0, RG, t0oD)
 
     # -------------------------------------------------------------------------
     # ---------------------------------------- Lay out the 2D coordinate system
@@ -452,6 +454,9 @@ def Geometry(pt, RG=None):
         'PoD': PoD,
         'skew': skew,
         'rake': rake / D,
+        # Additional 2D geometry for blade section plots
+        'XR': x2D / np.tile(c[:, np.newaxis], (1, 2 * Np)),  # Normalized x coordinates (x/c)
+        'YR': y2D / np.tile(c[:, np.newaxis], (1, 2 * Np)),  # Normalized y coordinates (y/c)
         # Additional 3D geometry for plotting/export
         'x2Dr': x2Dr,
         'y2Dr': y2Dr,
@@ -708,6 +713,8 @@ def _make_3d_propeller_image(geometry, Rhub, R):
     # Enable rotation with mouse
     plt.tight_layout()
     plt.show(block=False)
+
+
 def _write_geometry_text(filename, Date_string, geometry, D, Z, N, Dhub, Meanline, Thickness, LSGeoCorr, Mp):
     """Write propeller geometry to a text file.
     
@@ -729,16 +736,30 @@ def _write_geometry_text(filename, Date_string, geometry, D, Z, N, Dhub, Meanlin
         Propeller speed [RPM]
     Dhub : float
         Hub diameter [m]
-    Meanline : str or list
-        Meanline type(s)
-    Thickness : str or int or list
-        Thickness type(s)
+    Meanline : str or int
+        Meanline type
+    Thickness : str or int
+        Thickness type
     LSGeoCorr : str
         Lifting surface geometry correction type
     Mp : int
         Number of radial panels
     """
     filename_geometry = f'{filename}_Geometry.txt'
+    
+    # Convert numeric codes to strings if needed
+    if isinstance(Meanline, int):
+        meanline_names = {0: 'NACA a=0.8 (modified)', 1: 'NACA a=0.8', 2: 'parabolic'}
+        Meanline_str = meanline_names.get(Meanline, str(Meanline))
+    else:
+        Meanline_str = Meanline
+    
+    if isinstance(Thickness, int):
+        thickness_names = {1: 'NACA 65A010', 2: 'elliptic', 3: 'parabolic', 
+                          4: 'NACA 65A010 (modified)', 5: 'NACA 66 (DTRC modified)', 6: 'NACA 00xx'}
+        Thickness_str = thickness_names.get(Thickness, str(Thickness))
+    else:
+        Thickness_str = Thickness
     
     with open(filename_geometry, 'w') as fid:
         fid.write(f'\t\t {filename_geometry} \n\n')
@@ -761,8 +782,8 @@ def _write_geometry_text(filename, Date_string, geometry, D, Z, N, Dhub, Meanlin
                 fid.write(f'{t}, ')
             fid.write('\n')
         else:
-            fid.write(f'Meanline  Type: {Meanline}\n')
-            fid.write(f'Thickness Type: {Thickness}\n')
+            fid.write(f'Meanline  Type: {Meanline_str}\n')
+            fid.write(f'Thickness Type: {Thickness_str}\n')
         
         fid.write(f'Lifting Surface Geometry Corrections: {LSGeoCorr}\n')
         fid.write(' \n')
@@ -790,6 +811,8 @@ def _write_geometry_text(filename, Date_string, geometry, D, Z, N, Dhub, Meanlin
         fid.write('P/D  \t [ ], pitch           / propeller diameter \n')
         fid.write('fo/C \t [ ], max camber      / chord length \n')
         fid.write('to/C \t [ ], max thickness   / chord length \n')
+    
+    print(f'Geometry text file written: {filename_geometry}')
 
 
 def _write_latex_text(filename, Date_string, geometry, D, Z, N, Dhub, Vs, pt, Meanline, Thickness, LSGeoCorr, Mp):
@@ -896,3 +919,5 @@ def _write_latex_text(filename, Date_string, geometry, D, Z, N, Dhub, Vs, pt, Me
         fid.write('\\label{tab:propgeometry}  \n')
         fid.write('\\end{center}  \n')
         fid.write('\\end{table}  \n')
+    
+    print(f'LaTeX text file written: {filename_latex}')
