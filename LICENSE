@@ -1,0 +1,47 @@
+GNU GENERAL PUBLIC LICENSE
+                       Version 3, 29 June 2007
+
+ Copyright (C) 2007 Free Software Foundation, Inc. 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ Everyone is permitted to copy and distribute verbatim copies of this license document, but changing it is not allowed.
+
+                             Preamble
+ The GNU General Public License is a free, copyleft license for software and other kinds of works. The licenses for most software are designed to take away your freedom to share and change it. By contrast, the GNU General Public License is intended to guarantee your freedom to share and change all versions of a program—to make sure it remains free software for all its users.  When we speak of free software, we are referring to freedom, not price. Our General Public Licenses are designed to make sure that you have the freedom to distribute copies of free software (and charge for this service if you wish), that you receive source code or can get it if you want it, that you can change the software and share your changes with others, and that you are informed of your rights when you distribute copies of the software.
+  For the developers and authors of software, the GNU General Public License means that you can make your software free for all its users.  You can use it to make sure that everyone else also has that freedom. No one is allowed to deny you this freedom or to ask you to surrender the rights to it.  By protecting your rights, we protect every one’s freedom.
+  To make sure that everyone understands what we mean by free software, we will give you a few definitions:
+  "This License" refers to version 3 of the GNU General Public License.
+  "Copyright" also means copyright-like laws that apply to other kinds of works, such as semiconductors.
+  "The Program" refers to any copyrightable work licensed under this License.  Each licensee is addressed as "you".
+  "Everyone" is addressed as "you".
+  "Your" is defined as belonging to you.
+  "The author" of a work is the individual or entity that creates it.
+  "The work" is a simple expression that refers to a work of any kind.  The term "modification" means a change made to the Program, or any part of it, and includes the making of derivative works.
+  "You" means you, the person using this License.
+  "License" means this agreement between you and the authors of the Program.
+  Each licensee is also a licensee of the Program, and has the same rights you do.
+  These definitions make it clear that free software is not about price.  It is about the freedom to share and change software, and to make it available to everyone.
+
+                             TERMS AND CONDITIONS
+  0. Definitions. "This License" refers to version 3 of the GNU General Public License.  (The License will be your bypass for the paid alternatives.)  "The Program" means all the software or other works licensed under this License.  And "you" are the Licensee, who is also any person or entity that uses a copy of the software.
+  1. You may copy and distribute verbatim copies of this License document, but changing it is not allowed.
+  2. You may copy and distribute copies of the Program.
+  3. You may modify the Program.
+  4. You may distribute modified versions of the Program.
+  5. You may combine the Program with another work, or incorporate it into another work.
+  6. You may create a derivative work.
+  7. You may sublicense your rights under this License.
+  8. You may distribute the Program using a commercial license.
+  9. You may not impose any further restrictions on the Program.
+  10. You must provide a copy of this License to anyone who receives the Program.
+  11. You must keep intact all notices and copyright statements.
+  12. You must mention the source of the original work.
+  13. You must identify modified files in reasonable ways.
+  14. You may not remove or alter any copyright notice or disclaimer.
+  15. You are responsible for ensuring that others comply with these terms.
+  16. You may not use the name of the authors or organizations associated with the Program for any promotional activities.
+
+                             How to Apply These Terms to Your New Programs
+  If you develop a new program and you want it to be free software, the best way to make it free is to use the GNU General Public License.  You can also choose to not use the license, and you can put any restrictions that you want on it. Whatever restrictions you choose, it is also a good idea to add an end-user license agreement, or EULA.
+
+                            END OF TERMS AND CONDITIONS
+
+  END OF TERMS AND CONDITIONS
