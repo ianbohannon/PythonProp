@@ -4,7 +4,7 @@ A Python-based propeller design tool with an easy-to-use graphical interface.
 
 ## What is PythonProp?
 
-PythonProp is a propeller design software that helps you create and analyze marine propellers and ducted thrusters. It features:
+PythonProp is a propeller design software that helps you create and analyze propellers and ducted thrusters. It features:
 
 - **Easy-to-use GUI** - No coding required
 - **Interactive design** - See results in real-time
