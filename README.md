@@ -115,4 +115,4 @@ For issues or questions, open an issue on GitHub.
 ## License
 GNU GPL V3.0
 
-This project is a Python port of OpenProp. See original project at [MIT OpenProp](http://engineering.dartmouth.edu/openprop/)
+This project is a Python port of OpenProp. See original project at [Epps OpenProp](http://epps.com/openprop/)
