@@ -859,7 +859,19 @@ class DuctedPropGUI(ctk.CTk):
             # Run analysis
             self.after(0, lambda: self.progress.set(0.7))
             self.log("\nRunning off-design analysis...")
-            Js_range = np.arange(0.40, 0.76, 0.05)
+            
+            # Calculate design point Js (this corresponds to the input RPM - maximum RPM)
+            Js_design = inp['Js']
+            
+            # Create Js range starting from design point (max RPM) up to higher Js (lower RPM)
+            # Since RPM = Vs/(Js*D)*60, lower Js = higher RPM
+            # We want design point to be the MINIMUM Js (MAXIMUM RPM)
+            Js_min = Js_design  # Design point is the minimum Js (maximum RPM)
+            Js_max = min(1.00, Js_design + 0.35)  # Go to higher Js values (lower RPMs)
+            
+            # Create range starting from design point
+            Js_range = np.arange(Js_min, Js_max + 0.05, 0.05)
+            
             LAMBDAall = np.pi / Js_range
             self.pt["states"] = Analyze(self.pt, LAMBDAall)
             self.log("✓ Analysis complete")
@@ -1337,7 +1349,8 @@ class DuctedPropGUI(ctk.CTk):
             return
         
         states = self.pt["states"]
-        perf_frame = self.tabs.tab("Performance")
+        inp = self.pt["input"]
+        perf_tab = self.tabs.tab("Performance")
         
         # Destroy old canvas and figure
         if self.performance_canvas is not None:
@@ -1355,14 +1368,35 @@ class DuctedPropGUI(ctk.CTk):
                 pass
             self.performance_figure = None
         
-        perf_frame.update_idletasks()
+        # Destroy old scrollable frame if it exists
+        for widget in perf_tab.winfo_children():
+            widget.destroy()
         
-        # Create figure with 2 subplots
-        self.performance_figure = Figure(figsize=(14, 10), facecolor='#2b2b2b')
+        # Create scrollable frame for performance tab
+        perf_frame = ctk.CTkScrollableFrame(perf_tab)
+        perf_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Create figure with 4 subplots
+        self.performance_figure = Figure(figsize=(14, 16), facecolor='#2b2b2b')
         fig = self.performance_figure
         
+        # Calculate RPM and Torque arrays (used in multiple plots)
+        rho = inp['rho']
+        R = inp['R']
+        Vs = inp['Vs']
+        D = inp['D']
+        
+        # Calculate RPM from Js: Js = Vs / (n * D), so n = Vs / (Js * D)
+        # RPM = n * 60
+        n_array = Vs / (states['Js'] * D)  # revolution per second
+        RPM_array = n_array * 60  # RPM
+        
+        # Calculate torque for each state using KQ
+        # KQ = Q / (rho * n^2 * D^5), so Q = KQ * rho * n^2 * D^5
+        Torque_array = states['KQ'] * rho * (n_array**2) * (D**5)
+        
         # 1. KT, KQ, Efficiency vs Js
-        ax1 = fig.add_subplot(2, 1, 1)
+        ax1 = fig.add_subplot(4, 1, 1)
         ax1.plot(states['Js'], states['KT'], '.-', color='#3b82f6', 
                 linewidth=2.5, markersize=10, label='KT')
         ax1.plot(states['Js'], 10 * states['KQ'], '.-', color='#ef4444', 
@@ -1377,7 +1411,7 @@ class DuctedPropGUI(ctk.CTk):
         self.style_axis(ax1)
         
         # 2. CT, CP vs Js
-        ax2 = fig.add_subplot(2, 1, 2)
+        ax2 = fig.add_subplot(4, 1, 2)
         ax2.plot(states['Js'], states['CT'], '.-', color='cyan', 
                 linewidth=2.5, markersize=10, label='CT')
         ax2.plot(states['Js'], states['CP'], '.-', color='magenta', 
@@ -1388,6 +1422,28 @@ class DuctedPropGUI(ctk.CTk):
         ax2.legend(facecolor='#1e1e1e', edgecolor='white', labelcolor='white', fontsize=11)
         ax2.grid(True, alpha=0.3)
         self.style_axis(ax2)
+        
+        # 3. Torque vs RPM
+        ax3 = fig.add_subplot(4, 1, 3)
+        ax3.plot(RPM_array, Torque_array, '.-', color='#f59e0b', 
+                linewidth=2.5, markersize=10, label='Torque')
+        ax3.set_xlabel('RPM', color='white', fontsize=12)
+        ax3.set_ylabel('Torque (Nm)', color='white', fontsize=12)
+        ax3.set_title('Torque vs RPM', color='white', fontsize=14, fontweight='bold')
+        ax3.legend(facecolor='#1e1e1e', edgecolor='white', labelcolor='white', fontsize=11)
+        ax3.grid(True, alpha=0.3)
+        self.style_axis(ax3)
+        
+        # 4. Efficiency vs RPM
+        ax4 = fig.add_subplot(4, 1, 4)
+        ax4.plot(RPM_array, states['EFFY'], '.-', color='#10b981', 
+                linewidth=2.5, markersize=10, label='Efficiency (η)')
+        ax4.set_xlabel('RPM', color='white', fontsize=12)
+        ax4.set_ylabel('Efficiency', color='white', fontsize=12)
+        ax4.set_title('Efficiency vs RPM', color='white', fontsize=14, fontweight='bold')
+        ax4.legend(facecolor='#1e1e1e', edgecolor='white', labelcolor='white', fontsize=11)
+        ax4.grid(True, alpha=0.3)
+        self.style_axis(ax4)
         
         fig.tight_layout()
         
