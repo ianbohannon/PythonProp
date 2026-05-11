@@ -1500,12 +1500,35 @@ class DuctedPropGUI(ctk.CTk):
 
         perf_frame.update_idletasks()
 
-        # Create figure with 2 subplots
-        self.performance_figure = Figure(figsize=(14, 10), facecolor='#2b2b2b')
+        # Get input parameters for calculations
+        input_ = self.pt['input']
+        Vs = input_.get('Vs', 1)      # m/s
+        R = input_.get('R', 1)        # m
+        rho = input_.get('rho', 1000) # kg/m^3
+        D = 2 * R                     # m
+
+        # Calculate RPM and Torque for each state
+        N_states = states['Js'].shape[0]
+        RPM = np.zeros(N_states)
+        Torque = np.zeros(N_states)
+        
+        for i in range(N_states):
+            Js = states['Js'][i]
+            KQ = states['KQ'][i]
+            
+            # RPM calculation: N = 60 * Vs / (Js * D)
+            RPM[i] = 60 * Vs / (Js * D)
+            
+            # Torque calculation: Q = rho * n^2 * D^5 * KQ, where n = N/60
+            n = RPM[i] / 60  # rev/s
+            Torque[i] = rho * (n**2) * (D**5) * KQ
+
+        # Create figure with 3 subplots
+        self.performance_figure = Figure(figsize=(14, 12), facecolor='#2b2b2b')
         fig = self.performance_figure
 
         # 1. KT, KQ, Efficiency vs Js
-        ax1 = fig.add_subplot(2, 1, 1)
+        ax1 = fig.add_subplot(3, 1, 1)
         ax1.plot(states['Js'], states['KT'], '.-', color='#3b82f6', 
                 linewidth=2.5, markersize=10, label='KT')
         ax1.plot(states['Js'], 10 * states['KQ'], '.-', color='#ef4444', 
@@ -1520,7 +1543,7 @@ class DuctedPropGUI(ctk.CTk):
         self.style_axis(ax1)
 
         # 2. CT, CP vs Js
-        ax2 = fig.add_subplot(2, 1, 2)
+        ax2 = fig.add_subplot(3, 1, 2)
         ax2.plot(states['Js'], states['CT'], '.-', color='cyan', 
                 linewidth=2.5, markersize=10, label='CT')
         ax2.plot(states['Js'], states['CP'], '.-', color='magenta', 
@@ -1531,6 +1554,17 @@ class DuctedPropGUI(ctk.CTk):
         ax2.legend(facecolor='#1e1e1e', edgecolor='white', labelcolor='white', fontsize=11)
         ax2.grid(True, alpha=0.3)
         self.style_axis(ax2)
+
+        # 3. Torque vs RPM (NEW GRAPH)
+        ax3 = fig.add_subplot(3, 1, 3)
+        ax3.plot(RPM, Torque, '.-', color='#f59e0b', 
+                linewidth=2.5, markersize=10, label='Torque')
+        ax3.set_xlabel('RPM (rev/min)', color='white', fontsize=12)
+        ax3.set_ylabel('Torque (N⋅m)', color='white', fontsize=12)
+        ax3.set_title('Torque vs RPM', color='white', fontsize=14, fontweight='bold')
+        ax3.legend(facecolor='#1e1e1e', edgecolor='white', labelcolor='white', fontsize=11)
+        ax3.grid(True, alpha=0.3)
+        self.style_axis(ax3)
 
         fig.tight_layout()
 
