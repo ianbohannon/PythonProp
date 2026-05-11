@@ -284,7 +284,7 @@ class BladeDataEditor(ctk.CTkToplevel):
         self.data['XR'] = np.delete(self.data['XR'], idx)
         self.data['XCoD'] = np.delete(self.data['XCoD'], idx)
         self.data['t0oc'] = np.delete(self.data['t0oc'], idx)
-        self.data['XCD'] = np.delete(self.data['XCD'], idx)
+        self.data['XCD' ]= np.delete(self.data['XCD' ], idx)
         
         # Refresh table
         self.populate_table()
@@ -396,11 +396,15 @@ class DuctedPropGUI(ctk.CTk):
     def __init__(self):
         super().__init__()
         
-        self.title("OpenProp - Ducted Propeller Design")
+        self.title("PythonProp - Ducted Propeller Design")
         self.geometry("1800x950")
         
         # Initialize data
         self.pt = None
+        self.current_filename = None
+        
+        # Create menu bar
+        self.create_menu_bar()
         
         # Initialize blade data with defaults
         self.blade_data = {
@@ -433,6 +437,7 @@ class DuctedPropGUI(ctk.CTk):
         # Create UI
         self.create_input_panel()
         self.create_display_panel()
+        self.create_menu_bar()
     
     def on_closing(self):
         """Clean up matplotlib figures and canvases before closing"""
@@ -837,7 +842,7 @@ class DuctedPropGUI(ctk.CTk):
             # Enable text file output
             self.pt['input']['Make_GeoText_flag'] = 1
             if 'filename' not in self.pt['input']:
-                self.pt['input']['filename'] = 'OpenProp'
+                self.pt['input']['filename'] = 'PythonProp'
             
             # Save current backend and switch to Agg (non-interactive)
             current_backend = matplotlib.get_backend()
@@ -1005,7 +1010,7 @@ class DuctedPropGUI(ctk.CTk):
         n = inp['N'] / 60  # Convert RPM to rev/s
         rho = inp['rho']
         D = inp['D']
-        R = D / 2
+        R = inp['R']
         Vs = inp['Vs']
         if 'CQ' in design and 'CP' in design:
             # From Forces.m: Q = CQ * 0.5 * rho * Vs^2 * pi * R^3
@@ -1229,7 +1234,7 @@ class DuctedPropGUI(ctk.CTk):
             except:
                 pass
             self.view3d_figure = None
-        
+            
         view3d_frame.update_idletasks()
         
         # Create figure
@@ -1397,13 +1402,197 @@ class DuctedPropGUI(ctk.CTk):
         ax.tick_params(colors='white', labelsize=10)
         for spine in ax.spines.values():
             spine.set_color('white')
+    
+    def create_menu_bar(self):
+        """Create menu bar at the top"""
+        menubar = tk.Menu(self)
+        
+        # File menu
+        file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu.add_command(label="Open...", command=self.file_open)
+        file_menu.add_command(label="Save", command=self.file_save)
+        file_menu.add_command(label="Save As...", command=self.file_save_as)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", command=self.on_closing)
+        menubar.add_cascade(label="File", menu=file_menu)
+        
+        # Edit menu (empty)
+        edit_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Edit", menu=edit_menu)
+        
+        # Help menu (empty)
+        help_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Help", menu=help_menu)
+        
+        self.config(menu=menubar)
 
+    def get_input_values(self):
+        """Get all current input values from the GUI"""
+        values = {
+            "Z": self.Z.get(),
+            "N": self.N.get(),
+            "D": self.D.get(),
+            "THRUST": self.THRUST.get(),
+            "Vs": self.Vs.get(),
+            "Hub_flag": self.Hub_flag.get(),
+            "Dhub": self.Dhub.get(),
+            "HUF": self.HUF.get(),
+            "Rhv": self.Rhv.get(),
+            "Duct_flag": self.Duct_flag.get(),
+            "TAU": self.TAU.get(),
+            "Rduct_offset": self.Rduct_offset.get(),
+            "Cduct_mult": self.Cduct_mult.get(),
+            "CDd": self.CDd.get(),
+            "Meanline": self.Meanline.get(),
+            "Thickness": self.Thickness.get(),
+            "blade_data": {
+                "XR": self.blade_data['XR'].tolist(),
+                "XCoD": self.blade_data['XCoD'].tolist(),
+                "t0oc": self.blade_data['t0oc'].tolist(),
+                "XCD": self.blade_data['XCD'].tolist()
+            },
+            "Mp": self.Mp.get(),
+            "Np": self.Np.get(),
+            "rho": self.rho.get(),
+            "TUF": self.TUF.get(),
+            "Propeller_flag": self.Propeller_flag.get(),
+            "Viscous_flag": self.Viscous_flag.get(),
+            "Chord_flag": self.Chord_flag.get()
+        }
+        return values
 
-def main():
-    """Main entry point"""
-    app = DuctedPropGUI()
-    app.mainloop()
+    def set_input_values(self, values):
+        """Set all input values in the GUI"""
+        # Basic parameters
+        self.Z.delete(0, 'end')
+        self.Z.insert(0, values["Z"])
+        self.N.delete(0, 'end')
+        self.N.insert(0, values["N"])
+        self.D.delete(0, 'end')
+        self.D.insert(0, values["D"])
+        self.THRUST.delete(0, 'end')
+        self.THRUST.insert(0, values["THRUST"])
+        self.Vs.delete(0, 'end')
+        self.Vs.insert(0, values["Vs"])
+        
+        # Hub parameters
+        if values["Hub_flag"]:
+            self.Hub_flag.select()
+        else:
+            self.Hub_flag.deselect()
+        self.Dhub.delete(0, 'end')
+        self.Dhub.insert(0, values["Dhub"])
+        self.HUF.delete(0, 'end')
+        self.HUF.insert(0, values["HUF"])
+        self.Rhv.delete(0, 'end')
+        self.Rhv.insert(0, values["Rhv"])
+        
+        # Duct parameters
+        if values["Duct_flag"]:
+            self.Duct_flag.select()
+        else:
+            self.Duct_flag.deselect()
+        self.TAU.delete(0, 'end')
+        self.TAU.insert(0, values["TAU"])
+        self.Rduct_offset.delete(0, 'end')
+        self.Rduct_offset.insert(0, values["Rduct_offset"])
+        self.Cduct_mult.delete(0, 'end')
+        self.Cduct_mult.insert(0, values["Cduct_mult"])
+        self.CDd.delete(0, 'end')
+        self.CDd.insert(0, values["CDd"])
+        
+        # Section properties
+        self.Meanline.set(values["Meanline"])
+        self.Thickness.set(values["Thickness"])
+        
+        # Blade data
+        self.blade_data = {
+            "XR": np.array(values["blade_data"]["XR"]),
+            "XCoD": np.array(values["blade_data"]["XCoD"]),
+            "t0oc": np.array(values["blade_data"]["t0oc"]),
+            "XCD": np.array(values["blade_data"]["XCD"])
+        }
+        
+        # Computational parameters
+        self.Mp.delete(0, 'end')
+        self.Mp.insert(0, values["Mp"])
+        self.Np.delete(0, 'end')
+        self.Np.insert(0, values["Np"])
+        self.rho.delete(0, 'end')
+        self.rho.insert(0, values["rho"])
+        self.TUF.delete(0, 'end')
+        self.TUF.insert(0, values["TUF"])
+        
+        # Design flags
+        if values["Propeller_flag"]:
+            self.Propeller_flag.select()
+        else:
+            self.Propeller_flag.deselect()
+        if values["Viscous_flag"]:
+            self.Viscous_flag.select()
+        else:
+            self.Viscous_flag.deselect()
+        if values["Chord_flag"]:
+            self.Chord_flag.select()
+        else:
+            self.Chord_flag.deselect()
+
+    def file_open(self):
+        """Open an existing design"""
+        from tkinter import filedialog
+        import json
+        
+        filename = filedialog.askopenfilename(
+            title="Open Design File",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            defaultextension=".json"
+        )
+        if filename:
+            try:
+                with open(filename, 'r') as f:
+                    values = json.load(f)
+                self.set_input_values(values)
+                self.current_filename = filename
+                self.log(f"✓ Loaded design from: {filename}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to open file: {e}")
+
+    def file_save(self):
+        """Save current design"""
+        import json
+        
+        if hasattr(self, 'current_filename') and self.current_filename:
+            try:
+                values = self.get_input_values()
+                with open(self.current_filename, 'w') as f:
+                    json.dump(values, f, indent=4)
+                self.log(f"✓ Saved design to: {self.current_filename}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save file: {e}")
+        else:
+            self.file_save_as()
+
+    def file_save_as(self):
+        """Save design as new file"""
+        from tkinter import filedialog
+        import json
+        
+        filename = filedialog.asksaveasfilename(
+            title="Save Design As",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            defaultextension=".json"
+        )
+        if filename:
+            try:
+                values = self.get_input_values()
+                with open(filename, 'w') as f:
+                    json.dump(values, f, indent=4)
+                self.current_filename = filename
+                self.log(f"✓ Saved design to: {filename}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save file: {e}")
 
 
 if __name__ == "__main__":
-    main()
+    app = DuctedPropGUI()
+    app.mainloop()
