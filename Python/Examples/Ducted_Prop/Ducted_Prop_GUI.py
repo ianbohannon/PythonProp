@@ -42,7 +42,7 @@ class BladeDataEditor(ctk.CTkToplevel):
         super().__init__(parent)
         
         self.title("Blade 2-D Section Properties Editor")
-        self.geometry("900x600")
+        self.geometry("1400x600")  # CHANGED: Wider to accommodate more columns
         
         # Store reference to parent and data
         self.parent = parent
@@ -61,10 +61,12 @@ class BladeDataEditor(ctk.CTkToplevel):
         info_frame = ctk.CTkFrame(self)
         info_frame.pack(fill="x", padx=10, pady=10)
         
+        # CHANGED: Updated description to include new columns
         info_label = ctk.CTkLabel(
             info_frame, 
-            text="Edit blade radial distributions. Each row represents a radial station.\nXR: Radial position (r/R), XCoD: Chord/Diameter, t0oc: Thickness/Chord, XCD: Drag Coefficient",
-            font=ctk.CTkFont(size=12),
+            text="Edit blade radial distributions. Each row represents a radial station.\n"
+                 "XR: r/R, XCoD: c/D, t0oc: t/c, XCD: Drag Coeff, XVA: Va/Vs, XVT: Vt/Vs, skew0: Skew [deg], rake0: Rake/D",
+            font=ctk.CTkFont(size=11),
             justify="left"
         )
         info_label.pack(pady=5, padx=10)
@@ -98,8 +100,9 @@ class BladeDataEditor(ctk.CTkToplevel):
         tree_scroll_x = ttk.Scrollbar(table_frame, orient="horizontal")
         tree_scroll_x.pack(side="bottom", fill="x")
         
-        # Define columns
-        columns = ("Index", "XR (r/R)", "XCoD (c/D)", "t0oc (t/c)", "XCD")
+        # CHANGED: Added new columns for XVA, XVT, skew0, rake0
+        columns = ("Index", "XR (r/R)", "XCoD (c/D)", "t0oc (t/c)", "XCD",
+                   "XVA (Va/Vs)", "XVT (Vt/Vs)", "skew0 [deg]", "rake0 (rake/D)")
         
         self.tree = ttk.Treeview(
             table_frame, 
@@ -119,12 +122,20 @@ class BladeDataEditor(ctk.CTkToplevel):
         self.tree.heading("XCoD (c/D)", text="XCoD (c/D)")
         self.tree.heading("t0oc (t/c)", text="t0oc (t/c)")
         self.tree.heading("XCD", text="XCD")
+        self.tree.heading("XVA (Va/Vs)", text="XVA (Va/Vs)")      # NEW
+        self.tree.heading("XVT (Vt/Vs)", text="XVT (Vt/Vs)")      # NEW
+        self.tree.heading("skew0 [deg]", text="skew0 [deg]")      # NEW
+        self.tree.heading("rake0 (rake/D)", text="rake0 (rake/D)")  # NEW
         
-        self.tree.column("Index", width=60, anchor="center")
-        self.tree.column("XR (r/R)", width=150, anchor="center")
-        self.tree.column("XCoD (c/D)", width=150, anchor="center")
-        self.tree.column("t0oc (t/c)", width=150, anchor="center")
-        self.tree.column("XCD", width=150, anchor="center")
+        self.tree.column("Index", width=50, anchor="center")
+        self.tree.column("XR (r/R)", width=100, anchor="center")
+        self.tree.column("XCoD (c/D)", width=100, anchor="center")
+        self.tree.column("t0oc (t/c)", width=100, anchor="center")
+        self.tree.column("XCD", width=100, anchor="center")
+        self.tree.column("XVA (Va/Vs)", width=100, anchor="center")      # NEW
+        self.tree.column("XVT (Vt/Vs)", width=100, anchor="center")      # NEW
+        self.tree.column("skew0 [deg]", width=100, anchor="center")      # NEW
+        self.tree.column("rake0 (rake/D)", width=120, anchor="center")    # NEW
         
         self.tree.pack(fill="both", expand=True)
         
@@ -153,12 +164,12 @@ class BladeDataEditor(ctk.CTkToplevel):
                        foreground="white",
                        fieldbackground="#2b2b2b",
                        borderwidth=0,
-                       font=("Consolas", 10))
+                       font=("Consolas", 9))  # CHANGED: Smaller font
         style.configure("Treeview.Heading",
                        background="#1f538d",
                        foreground="white",
                        borderwidth=1,
-                       font=("Arial", 10, "bold"))
+                       font=("Arial", 9, "bold"))  # CHANGED: Smaller font
         style.map("Treeview",
                  background=[("selected", "#1f538d")])
         
@@ -168,20 +179,28 @@ class BladeDataEditor(ctk.CTkToplevel):
         for item in self.tree.get_children():
             self.tree.delete(item)
         
-        # Get arrays
+        # CHANGED: Get all arrays including new ones
         XR = self.data['XR']
         XCoD = self.data['XCoD']
         t0oc = self.data['t0oc']
         XCD = self.data['XCD']
+        XVA = self.data['XVA']      # NEW
+        XVT = self.data['XVT']      # NEW
+        skew0 = self.data['skew0']  # NEW
+        rake0 = self.data['rake0']  # NEW
         
-        # Add rows
+        # CHANGED: Add rows with all columns
         for i in range(len(XR)):
             self.tree.insert("", "end", values=(
                 i,
                 f"{XR[i]:.4f}",
                 f"{XCoD[i]:.4f}",
                 f"{t0oc[i]:.4f}",
-                f"{XCD[i]:.6f}"
+                f"{XCD[i]:.6f}",
+                f"{XVA[i]:.4f}",      # NEW
+                f"{XVT[i]:.4f}",      # NEW
+                f"{skew0[i]:.4f}",    # NEW
+                f"{rake0[i]:.6f}"     # NEW
             ))
     
     def on_double_click(self, event):
@@ -211,7 +230,7 @@ class BladeDataEditor(ctk.CTkToplevel):
         x, y, width, height = self.tree.bbox(row_id, column)
         
         # Create entry widget for editing
-        entry = tk.Entry(self.tree, font=("Consolas", 10))
+        entry = tk.Entry(self.tree, font=("Consolas", 9))  # CHANGED: Smaller font
         entry.place(x=x, y=y, width=width, height=height)
         entry.insert(0, current_value)
         entry.select_range(0, tk.END)
@@ -239,11 +258,15 @@ class BladeDataEditor(ctk.CTkToplevel):
     
     def add_row(self):
         """Add a new row to the table"""
-        # Get current data
+        # CHANGED: Get current data including new arrays
         XR = self.data['XR'].tolist()
         XCoD = self.data['XCoD'].tolist()
         t0oc = self.data['t0oc'].tolist()
         XCD = self.data['XCD'].tolist()
+        XVA = self.data['XVA'].tolist()      # NEW
+        XVT = self.data['XVT'].tolist()      # NEW
+        skew0 = self.data['skew0'].tolist()  # NEW
+        rake0 = self.data['rake0'].tolist()  # NEW
         
         # Add default values
         if len(XR) > 0:
@@ -255,12 +278,20 @@ class BladeDataEditor(ctk.CTkToplevel):
         XCoD.append(0.15)
         t0oc.append(0.05)
         XCD.append(0.008)
+        XVA.append(1.0)       # NEW: Default uniform inflow
+        XVT.append(0.0)       # NEW: Default no tangential inflow
+        skew0.append(0.0)     # NEW: Default no skew
+        rake0.append(0.0)     # NEW: Default no rake
         
-        # Update data
+        # CHANGED: Update data including new arrays
         self.data['XR'] = np.array(XR)
         self.data['XCoD'] = np.array(XCoD)
         self.data['t0oc'] = np.array(t0oc)
         self.data['XCD'] = np.array(XCD)
+        self.data['XVA'] = np.array(XVA)      # NEW
+        self.data['XVT'] = np.array(XVT)      # NEW
+        self.data['skew0'] = np.array(skew0)  # NEW
+        self.data['rake0'] = np.array(rake0)  # NEW
         
         # Refresh table
         self.populate_table()
@@ -280,11 +311,15 @@ class BladeDataEditor(ctk.CTkToplevel):
         values = self.tree.item(selected[0], 'values')
         idx = int(values[0])
         
-        # Remove from arrays
+        # CHANGED: Remove from all arrays including new ones
         self.data['XR'] = np.delete(self.data['XR'], idx)
         self.data['XCoD'] = np.delete(self.data['XCoD'], idx)
         self.data['t0oc'] = np.delete(self.data['t0oc'], idx)
-        self.data['XCD' ]= np.delete(self.data['XCD' ], idx)
+        self.data['XCD'] = np.delete(self.data['XCD'], idx)
+        self.data['XVA'] = np.delete(self.data['XVA'], idx)      # NEW
+        self.data['XVT'] = np.delete(self.data['XVT'], idx)      # NEW
+        self.data['skew0'] = np.delete(self.data['skew0'], idx)  # NEW
+        self.data['rake0'] = np.delete(self.data['rake0'], idx)  # NEW
         
         # Refresh table
         self.populate_table()
@@ -298,16 +333,24 @@ class BladeDataEditor(ctk.CTkToplevel):
             self.data['t0oc'] = np.array([0.2056, 0.1551, 0.1181, 0.0902, 0.0694, 0.0541, 
                                          0.0419, 0.0332, 0.0324, 0.0000])
             self.data['XCD'] = np.ones(10) * 0.008
+            self.data['XVA'] = np.ones(10)      # NEW: Default uniform inflow
+            self.data['XVT'] = np.zeros(10)     # NEW: Default no tangential inflow
+            self.data['skew0'] = np.zeros(10)   # NEW: Default no skew
+            self.data['rake0'] = np.zeros(10)   # NEW: Default no rake
             self.populate_table()
     
     def apply_changes(self):
         """Apply changes and close window"""
         try:
-            # Extract data from tree
+            # CHANGED: Extract data from tree including new columns
             XR_list = []
             XCoD_list = []
             t0oc_list = []
             XCD_list = []
+            XVA_list = []      # NEW
+            XVT_list = []      # NEW
+            skew0_list = []    # NEW
+            rake0_list = []    # NEW
             
             for item in self.tree.get_children():
                 values = self.tree.item(item, 'values')
@@ -315,6 +358,10 @@ class BladeDataEditor(ctk.CTkToplevel):
                 XCoD_list.append(float(values[2]))
                 t0oc_list.append(float(values[3]))
                 XCD_list.append(float(values[4]))
+                XVA_list.append(float(values[5]))      # NEW
+                XVT_list.append(float(values[6]))      # NEW
+                skew0_list.append(float(values[7]))    # NEW
+                rake0_list.append(float(values[8]))    # NEW
             
             # Validate data
             if len(XR_list) < 2:
@@ -327,11 +374,15 @@ class BladeDataEditor(ctk.CTkToplevel):
                     messagebox.showerror("Error", "XR values must be monotonically increasing")
                     return
             
-            # Update data
+            # CHANGED: Update data including new arrays
             self.data['XR'] = np.array(XR_list)
             self.data['XCoD'] = np.array(XCoD_list)
             self.data['t0oc'] = np.array(t0oc_list)
             self.data['XCD'] = np.array(XCD_list)
+            self.data['XVA'] = np.array(XVA_list)      # NEW
+            self.data['XVT'] = np.array(XVT_list)      # NEW
+            self.data['skew0'] = np.array(skew0_list)  # NEW
+            self.data['rake0'] = np.array(rake0_list)  # NEW
             
             # Update parent's blade data
             self.parent.blade_data = self.data.copy()
@@ -406,14 +457,18 @@ class DuctedPropGUI(ctk.CTk):
         # Create menu bar
         self.create_menu_bar()
         
-        # Initialize blade data with defaults
+        # CHANGED: Initialize blade data with defaults including new parameters
         self.blade_data = {
             'XR': np.array([0.15, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1.0]),
             'XCoD': np.array([0.1600, 0.1818, 0.2024, 0.2196, 0.2305, 0.2311, 
                             0.2173, 0.1806, 0.1387, 0.0010]),
             't0oc': np.array([0.2056, 0.1551, 0.1181, 0.0902, 0.0694, 0.0541, 
                             0.0419, 0.0332, 0.0324, 0.0000]),
-            'XCD': np.ones(10) * 0.008
+            'XCD': np.ones(10) * 0.008,
+            'XVA': np.ones(10),      # NEW: Va/Vs = 1.0 (uniform axial inflow)
+            'XVT': np.zeros(10),     # NEW: Vt/Vs = 0.0 (no tangential inflow)
+            'skew0': np.zeros(10),   # NEW: skew = 0 degrees (no sweep)
+            'rake0': np.zeros(10)    # NEW: rake = 0 (no axial offset)
         }
         
         # Store references to canvases and figures for proper cleanup
@@ -465,7 +520,6 @@ class DuctedPropGUI(ctk.CTk):
                         plt.close(fig)
                     except:
                         pass
-            
             # Close any remaining figures
             plt.close('all')
             
@@ -666,17 +720,15 @@ class DuctedPropGUI(ctk.CTk):
             L = np.pi / Js
             CTDES = THRUST / (0.5 * float(self.rho.get()) * Vs**2 * np.pi * R**2)
             
-            # Use blade data from editor
+            # CHANGED: Use blade data from editor INCLUDING new parameters
             XR = self.blade_data['XR']
             XCoD = self.blade_data['XCoD']
             t0oc = self.blade_data['t0oc']
             XCD = self.blade_data['XCD']
-            
-            # Initialize other distributions
-            XVA = np.ones(len(XR))
-            XVT = np.zeros(len(XR))
-            skew0 = np.zeros(len(XR))
-            rake0 = np.zeros(len(XR))
+            XVA = self.blade_data['XVA']      # NEW
+            XVT = self.blade_data['XVT']      # NEW
+            skew0 = self.blade_data['skew0']  # NEW
+            rake0 = self.blade_data['rake0']  # NEW
             
             # Map meanline dropdown to string name
             meanline_map = {
@@ -696,13 +748,14 @@ class DuctedPropGUI(ctk.CTk):
             Rduct = D / 2 + float(self.Rduct_offset.get())
             Cduct = D * float(self.Cduct_mult.get())
             
+            # CHANGED: Include new parameters in input dictionary
             inp = {
                 "Z": Z, "N": N, "D": D, "Vs": Vs, "Js": Js, "L": L, "CTDES": CTDES,
                 "Mp": int(self.Mp.get()), "Np": int(self.Np.get()),
                 "R": R, "Rhub": Rhub, "Rhub_oR": Rhub/R,
                 "XR": XR, "XVA": XVA, "XVT": XVT, "XCD": XCD, "XCoD": XCoD,
                 "t0oc0": t0oc,
-                "skew0": skew0, "rake0": rake0,
+                "skew0": skew0, "rake0": rake0,  # NEW: Now passed to optimizer/geometry
                 "Meanline": meanline_value,
                 "Thickness": thickness_value,
                 "dCLdALPHA": 2*np.pi,
@@ -867,7 +920,7 @@ class DuctedPropGUI(ctk.CTk):
             # Since RPM = Vs/(Js*D)*60, lower Js = higher RPM
             # We want design point to be the MINIMUM Js (MAXIMUM RPM)
             Js_min = Js_design  # Design point is the minimum Js (maximum RPM)
-            Js_max = min(1.00, Js_design + 0.35)  # Go to higher Js values (lower RPMs)
+            Js_max = min(1.00, Js_design + 0.5)  # Go to higher Js values (lower RPMs)
             
             # Create range starting from design point
             Js_range = np.arange(Js_min, Js_max + 0.05, 0.05)
@@ -1408,6 +1461,7 @@ class DuctedPropGUI(ctk.CTk):
         ax1.set_title('Off-Design Performance', color='white', fontsize=14, fontweight='bold')
         ax1.legend(facecolor='#1e1e1e', edgecolor='white', labelcolor='white', fontsize=11)
         ax1.grid(True, alpha=0.3)
+        ax1.set_xlim(right=.85)  # Max X-axis
         self.style_axis(ax1)
         
         # 2. CT, CP vs Js
@@ -1421,6 +1475,7 @@ class DuctedPropGUI(ctk.CTk):
         ax2.set_title('Thrust and Power Coefficients', color='white', fontsize=14, fontweight='bold')
         ax2.legend(facecolor='#1e1e1e', edgecolor='white', labelcolor='white', fontsize=11)
         ax2.grid(True, alpha=0.3)
+        ax2.set_xlim(right=0.85)  # ADD THIS LINE - Extend X-axis to 0.80
         self.style_axis(ax2)
         
         # 3. Torque vs RPM
@@ -1484,6 +1539,7 @@ class DuctedPropGUI(ctk.CTk):
 
     def get_input_values(self):
         """Get all current input values from the GUI"""
+        # CHANGED: Include new blade data parameters in save file
         values = {
             "Z": self.Z.get(),
             "N": self.N.get(),
@@ -1505,7 +1561,11 @@ class DuctedPropGUI(ctk.CTk):
                 "XR": self.blade_data['XR'].tolist(),
                 "XCoD": self.blade_data['XCoD'].tolist(),
                 "t0oc": self.blade_data['t0oc'].tolist(),
-                "XCD": self.blade_data['XCD'].tolist()
+                "XCD": self.blade_data['XCD'].tolist(),
+                "XVA": self.blade_data['XVA'].tolist(),      # NEW
+                "XVT": self.blade_data['XVT'].tolist(),      # NEW
+                "skew0": self.blade_data['skew0'].tolist(),  # NEW
+                "rake0": self.blade_data['rake0'].tolist()   # NEW
             },
             "Mp": self.Mp.get(),
             "Np": self.Np.get(),
@@ -1561,12 +1621,16 @@ class DuctedPropGUI(ctk.CTk):
         self.Meanline.set(values["Meanline"])
         self.Thickness.set(values["Thickness"])
         
-        # Blade data
+        # CHANGED: Load blade data including new parameters
         self.blade_data = {
             "XR": np.array(values["blade_data"]["XR"]),
             "XCoD": np.array(values["blade_data"]["XCoD"]),
             "t0oc": np.array(values["blade_data"]["t0oc"]),
-            "XCD": np.array(values["blade_data"]["XCD"])
+            "XCD": np.array(values["blade_data"]["XCD"]),
+            "XVA": np.array(values["blade_data"].get("XVA", np.ones(len(values["blade_data"]["XR"])))),    # NEW with fallback
+            "XVT": np.array(values["blade_data"].get("XVT", np.zeros(len(values["blade_data"]["XR"])))),   # NEW with fallback
+            "skew0": np.array(values["blade_data"].get("skew0", np.zeros(len(values["blade_data"]["XR"])))), # NEW with fallback
+            "rake0": np.array(values["blade_data"].get("rake0", np.zeros(len(values["blade_data"]["XR"])))) # NEW with fallback
         }
         
         # Computational parameters

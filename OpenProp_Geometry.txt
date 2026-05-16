@@ -1,8 +1,8 @@
-		 PythonProp_Geometry.txt 
+		 OpenProp_Geometry.txt 
 
 		 Propeller Geometry Table
 
-Date and time: 2026-05-16
+Date and time: 2026-05-10
 
 Propeller Diameter 	 = 0.1000 m
 Number of Blades   	 = 4
