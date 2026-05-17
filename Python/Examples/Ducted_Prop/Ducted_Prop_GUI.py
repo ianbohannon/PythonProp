@@ -59,7 +59,7 @@ class BladeDataEditor(ctk.CTkToplevel):
         """Create the editor UI"""
         # Instructions
         info_frame = ctk.CTkFrame(self)
-        info_frame.pack(fill="x", padx=10, pady=10)
+        info_frame.pack(fill="x", padx=20, pady=20)
         
         # CHANGED: Updated description to include new columns
         info_label = ctk.CTkLabel(
@@ -576,7 +576,7 @@ class DuctedPropGUI(ctk.CTk):
         self.CDd = self.add_input(duct_content, "Drag Coefficient", "0.008")
         
         # Section Properties - Collapsible
-        section_section = CollapsibleSection(input_frame, "Section Properties", start_collapsed=False)
+        section_section = CollapsibleSection(input_frame, "Section Properties", start_collapsed=True)
         section_section.pack(fill="x", padx=0, pady=5)
         section_content = section_section.get_content_frame()
         
@@ -598,7 +598,7 @@ class DuctedPropGUI(ctk.CTk):
         blade_data_btn.pack(pady=5, padx=15, fill="x")
         
         # Computational Parameters - Collapsible
-        computational_section = CollapsibleSection(input_frame, "Computational", start_collapsed=False)
+        computational_section = CollapsibleSection(input_frame, "Computational", start_collapsed=True)
         computational_section.pack(fill="x", padx=0, pady=5)
         computational_content = computational_section.get_content_frame()
         
@@ -608,7 +608,7 @@ class DuctedPropGUI(ctk.CTk):
         self.TUF = self.add_input(computational_content, "Tip Unloading", "0")
         
         # Design Flags - Collapsible
-        flags_section = CollapsibleSection(input_frame, "Design Flags", start_collapsed=False)
+        flags_section = CollapsibleSection(input_frame, "Design Flags", start_collapsed=True)
         flags_section.pack(fill="x", padx=0, pady=5)
         flags_content = flags_section.get_content_frame()
         
@@ -920,7 +920,7 @@ class DuctedPropGUI(ctk.CTk):
             # Since RPM = Vs/(Js*D)*60, lower Js = higher RPM
             # We want design point to be the MINIMUM Js (MAXIMUM RPM)
             Js_min = Js_design  # Design point is the minimum Js (maximum RPM)
-            Js_max = min(1.00, Js_design + 0.5)  # Go to higher Js values (lower RPMs)
+            Js_max = min(1.00, Js_design + 0.45)  # Go to higher Js values (lower RPMs)
             
             # Create range starting from design point
             Js_range = np.arange(Js_min, Js_max + 0.05, 0.05)
@@ -1461,7 +1461,7 @@ class DuctedPropGUI(ctk.CTk):
         ax1.set_title('Off-Design Performance', color='white', fontsize=14, fontweight='bold')
         ax1.legend(facecolor='#1e1e1e', edgecolor='white', labelcolor='white', fontsize=11)
         ax1.grid(True, alpha=0.3)
-        ax1.set_xlim(right=.85)  # Max X-axis
+        ax1.set_xlim(right=.8)  # Max X-axis
         self.style_axis(ax1)
         
         # 2. CT, CP vs Js
@@ -1475,7 +1475,7 @@ class DuctedPropGUI(ctk.CTk):
         ax2.set_title('Thrust and Power Coefficients', color='white', fontsize=14, fontweight='bold')
         ax2.legend(facecolor='#1e1e1e', edgecolor='white', labelcolor='white', fontsize=11)
         ax2.grid(True, alpha=0.3)
-        ax2.set_xlim(right=0.85)  # ADD THIS LINE - Extend X-axis to 0.80
+        ax2.set_xlim(right=0.8)  # ADD THIS LINE - Extend X-axis to 0.80
         self.style_axis(ax2)
         
         # 3. Torque vs RPM
@@ -1523,6 +1523,8 @@ class DuctedPropGUI(ctk.CTk):
         file_menu.add_command(label="Open...", command=self.file_open)
         file_menu.add_command(label="Save", command=self.file_save)
         file_menu.add_command(label="Save As...", command=self.file_save_as)
+        file_menu.add_separator()
+        file_menu.add_command(label="Export Geometry to STL...", command=self.export_geometry_stl)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.on_closing)
         menubar.add_cascade(label="File", menu=file_menu)
@@ -1712,6 +1714,181 @@ class DuctedPropGUI(ctk.CTk):
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to save file: {e}")
 
+    def export_geometry_stl(self):
+        """Export blade geometry to STL file"""
+        if not hasattr(self, 'pt') or 'geometry' not in self.pt:
+            messagebox.showwarning("No Geometry", "Please run the design process first.")
+            return
+        
+        from tkinter import filedialog
+
+        # Show export options dialog
+        options_dialog = STLExportOptionsDialog(self)
+        self.wait_window(options_dialog)
+        
+        # Check if user cancelled
+        if not hasattr(options_dialog, 'result') or options_dialog.result is None:
+            return
+        
+        # Get export options
+        ascii_format = options_dialog.result['ascii_format']
+        include_hub = options_dialog.result['include_hub']
+        single_blade = options_dialog.result['single_blade']
+        
+        # Ask for save location
+        filename = filedialog.asksaveasfilename(
+            title="Export Blade Geometry to STL",
+            defaultextension=".stl",
+            filetypes=[("STL files", "*.stl"), ("All files", "*.*")],
+            initialfile="blade_geometry.stl"
+        )
+        
+        if filename:
+            try:
+                from export_stl import export_blade_to_stl
+                export_blade_to_stl(
+                    self.pt['geometry'], 
+                    filename, 
+                    units='mm',
+                    ascii_format=ascii_format,
+                    include_hub=include_hub,
+                    single_blade=single_blade
+                )
+                blade_text = "Single blade" if single_blade else f"{self.pt['geometry']['Z']} blades"
+                messagebox.showinfo(
+                    "Export Complete", 
+                    f"Geometry exported to:\n{filename}\n\n"
+                    f"Units: millimeters\n"
+                    f"Format: {'ASCII' if ascii_format else 'Binary'}\n"
+                    f"Hub included: {'Yes' if include_hub else 'No'}\n"
+                    f"Blades: {blade_text}"
+                )
+                self.log(f"✓ Geometry exported to: {filename} (mm, {blade_text})")
+            except Exception as e:
+                messagebox.showerror("Export Error", f"Failed to export:\n{str(e)}")
+                self.log(f"✗ Export failed: {str(e)}")
+
+
+class STLExportOptionsDialog(ctk.CTkToplevel):
+    """Dialog for selecting STL export options"""
+    
+    def __init__(self, parent):
+        super().__init__(parent)
+        
+        self.title("STL Export Options")
+        self.geometry("400x450")
+        self.resizable(False, False)
+        
+        # Make modal
+        self.transient(parent)
+        self.grab_set()
+        
+        # Center on parent
+        self.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() // 2) - (200)
+        y = parent.winfo_y() + (parent.winfo_height() // 2) - (225)
+        self.geometry(f"400x450+{x}+{y}")
+        
+        self.result = None
+        self.create_ui()
+    
+    def create_ui(self):
+        """Create the dialog UI"""
+        # Title
+        title_label = ctk.CTkLabel(
+            self, 
+            text="STL Export Options",
+            font=ctk.CTkFont(size=18, weight="bold")
+        )
+        title_label.pack(pady=(30, 30))
+        
+        # Format selection
+        format_label = ctk.CTkLabel(
+            self, 
+            text="File Format:", 
+            font=ctk.CTkFont(size=14, weight="bold")
+        )
+        format_label.pack(pady=(10, 5))
+        
+        self.format_var = tk.StringVar(value="Binary")
+        format_menu = ctk.CTkOptionMenu(
+            self,
+            values=["Binary", "ASCII"],
+            variable=self.format_var,
+            width=200
+        )
+        format_menu.pack(pady=(0, 20))
+        
+        # Include hub checkbox
+        self.include_hub_var = tk.BooleanVar(value=True)
+        hub_checkbox = ctk.CTkCheckBox(
+            self,
+            text="Include Hub Geometry",
+            variable=self.include_hub_var,
+            font=ctk.CTkFont(size=13)
+        )
+        hub_checkbox.pack(pady=10)
+        
+        # Single blade checkbox
+        self.single_blade_var = tk.BooleanVar(value=False)
+        blade_checkbox = ctk.CTkCheckBox(
+            self,
+            text="Export Single Blade Only",
+            variable=self.single_blade_var,
+            font=ctk.CTkFont(size=13)
+        )
+        blade_checkbox.pack(pady=10)
+        
+        # Info label
+        info_label = ctk.CTkLabel(
+            self,
+            text="Output units: millimeters\n(Scale in CAD software if needed)",
+            font=ctk.CTkFont(size=11),
+            text_color="gray"
+        )
+        info_label.pack(pady=(10, 30))
+        
+        # Button frame at bottom
+        button_frame = ctk.CTkFrame(self, fg_color="transparent")
+        button_frame.pack(fill="x", padx=30, pady=(0, 30))
+        
+        # Cancel button
+        cancel_btn = ctk.CTkButton(
+            button_frame,
+            text="Cancel",
+            command=self.cancel,
+            width=150,
+            height=40,
+            font=ctk.CTkFont(size=14),
+            fg_color="gray",
+            hover_color="darkgray"
+        )
+        cancel_btn.pack(side="left", padx=5)
+        
+        # Export button
+        export_btn = ctk.CTkButton(
+            button_frame,
+            text="Export",
+            command=self.ok,
+            width=150,
+            height=40,
+            font=ctk.CTkFont(size=14, weight="bold")
+        )
+        export_btn.pack(side="right", padx=5)
+    
+    def ok(self):
+        """User clicked Export"""
+        self.result = {
+            'ascii_format': (self.format_var.get() == "ASCII"),
+            'include_hub': self.include_hub_var.get(),
+            'single_blade': self.single_blade_var.get()
+        }
+        self.destroy()
+    
+    def cancel(self):
+        """User clicked Cancel"""
+        self.result = None
+        self.destroy()
 
 if __name__ == "__main__":
     app = DuctedPropGUI()
