@@ -1496,6 +1496,7 @@ class DuctedPropGUI(ctk.CTk):
         ax4.set_xlabel('RPM', color='white', fontsize=12)
         ax4.set_ylabel('Efficiency', color='white', fontsize=12)
         ax4.set_title('Efficiency vs RPM', color='white', fontsize=14, fontweight='bold')
+        ax4.set_ylim(0, 1)  # Limit Y-axis to 0-1 range
         ax4.legend(facecolor='#1e1e1e', edgecolor='white', labelcolor='white', fontsize=11)
         ax4.grid(True, alpha=0.3)
         self.style_axis(ax4)
